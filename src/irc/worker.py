@@ -202,8 +202,12 @@ class Events:
             if m[:1] == '+':
                 while i != 0:
                     i -= 1
-                    irc.var.namesdict[channel][1][msg.cmd_ls[3+i]].append(
-                        m_dict[modes[i]])
+                    nick = msg.cmd_ls[3+i]
+                    try:
+                        irc.var.namesdict[channel][1][nick].append(
+                            m_dict[modes[i]])
+                    except KeyError:
+                        irc.var.namesdict[channel][1].append({nick: modes[i]})
             else:
                 while i != 0:
                     i -= 1
