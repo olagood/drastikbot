@@ -32,14 +32,14 @@ from pathlib import Path
 
 
 def text_fix(line):
-        try:
-                line = line.decode('utf8', errors='ignore')
-        except Exception:
-                # Catch UnicodeDecode errors and silently ignore them.
-                pass
-        # Remove "\r\n" and all whitespace.
-        line = " ".join(line.split())
-        return line
+    try:
+        line = line.decode('utf8', errors='ignore')
+    except Exception:
+        # Catch UnicodeDecode errors and silently ignore them.
+            pass
+    # Remove "\r\n" and all whitespace.
+    line = " ".join(line.split())
+    return line
 
 
 class Message:
