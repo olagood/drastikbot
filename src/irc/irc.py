@@ -32,7 +32,12 @@ import dbot_tools
 class Settings:
     def __init__(self, conf_dir):
         self.cd = conf_dir
-        self.reconnect_delay = 10
+        self.reconnect_delay = 10  #
+        # Message length used by irc.send
+        # (TODO: The bot should dynamically change it based on the bot's
+        # nickname and hostmask length)
+        self.msg_len = 400
+
         # Runtime Variables
         self.curr_nickname = ''        # Nickname currently used
         self.alt_nickname = False      # Alternative nickname used
@@ -82,23 +87,37 @@ class Drastikbot():
         self.var = Settings(self.cd)
 
     def send(self, cmds, text=None):  # textFix stuff and send them
+        m_len = self.var.msg_len
         cmds = [dbot_tools.text_fix(cmd) for cmd in cmds]
         if text:
             text = dbot_tools.text_fix(text)
             # https://tools.ietf.org/html/rfc2812.html#section-2.3
             # NOTE: 2) IRC messages are limited to 512 characters in length.
             # With CR-LF we are left with 510 characters to use
-            to_send = (' '.join(cmds) + ' :' + text)[:510] + '\r\n'
+            tosend = f"{' '.join(cmds)} :{text}"
         else:
-            to_send = ' '.join(cmds)[:510] + '\r\n'  # for commands
-        print(to_send)
+            tosend = ' '.join(cmds)  # for commands
         try:
-            self.irc_socket.send(to_send.encode('utf-8'))
+            tosend = tosend.encode('utf-8')
+
+            t_len = False
+            if len(tosend) > m_len:
+                # Handle messages that are too long to fit in one message.
+                # Truncate messages at the last space found to avoid breaking
+                # utf-8.
+                tosend = tosend[:m_len].rsplit(b' ', 1)
+                t_len = len(tosend[1])
+                tosend = tosend[0]
+
+            tosend = tosend + b'\r\n'
+            self.irc_socket.send(tosend)
         except OSError:
             return self.connect()
-        # If the input text is longer than 510 send the rest
-        if len(to_send) == 512 and text is not None:
-            self.send(cmds, text[(512 - len(' '.join(cmds)) - 53):])
+        # If the input text is longer than 510 send the rest.
+        if t_len:
+            tr = m_len - 2 - len(' '.join(cmds).encode('utf-8')) - t_len
+            t = text.encode('utf-8')[tr:]
+            self.send(cmds, t)
 
     def privmsg(self, target, msg):
         self.send(('PRIVMSG', target), msg)
