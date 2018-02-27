@@ -133,17 +133,21 @@ class Register:
 
 
 class Events:
+    def __init__(self, log):
+        self.log = log
+
     def rpl_namreply(self, irc, msg):
         channel = msg.cmd_ls[3]
-        irc.var.namesdict[channel] = [[], {}]
+        if channel not in irc.var.namesdict:
+            irc.var.namesdict[channel] = [[], {}]
         namesdict = irc.var.namesdict[channel]
         namesdict[0] = [msg.cmd_ls[2]]
         modes = ['~', '&', '@', '%', '+']
         for i in msg.params.split():
             if i[:1] in modes:
-                namesdict[1][i[1:]] = [i[:1]]
+                namesdict[1].update({i[1:]: [i[:1]]})
             else:
-                namesdict[1][i] = []
+                namesdict[1].update({i: []})
         irc.send(('MODE', channel))  # Reply handled by rpl_channelmodeis
 
     def rpl_channelmodeis(self, irc, msg):
@@ -160,10 +164,16 @@ class Events:
         try:
             channel = msg.params.split()[0]
         except IndexError:
+            # Some servers will pass the channel as params instead of as
+            # a command.
             channel = msg.cmd_ls[1]
         try:
             irc.var.namesdict[channel][1][nick] = []
         except KeyError:
+            # This should not be needed now that @rpl_namreply()
+            # is fixed, but the exception will be monitored for
+            # possible future reoccurance, before it is removed.
+            self.log.debug('KeyError @Events.irc_part(). Err: 01')
             pass
 
     def irc_part(self, irc, msg):
@@ -172,6 +182,10 @@ class Events:
             channel = msg.cmd_ls[1]
             del irc.var.namesdict[channel][1][nick]
         except KeyError:
+            # This should not be needed now that @rpl_namreply()
+            # is fixed, but the exception will be monitored for
+            # possible future reoccurance, before it is removed.
+            self.log.debug('KeyError @Events.irc_part(). Err: 01')
             pass
 
     def irc_quit(self, irc, msg):
@@ -179,7 +193,13 @@ class Events:
         for chan in irc.var.namesdict:
             try:
                 del chan[1][nick]
-            except Exception:
+            except Exception as e:
+                # This should not be needed now that @rpl_namreply()
+                # is fixed, but the exception will be monitored for
+                # possible future reoccurance, before it is removed.
+                # We will also log the Exception here to make sure there
+                # isn't another bug possible.
+                self.log.debug(f'KeyError @Events.irc_part(). Err: 01 | {e}')
                 pass
 
     def irc_nick(self, irc, msg):
@@ -189,6 +209,10 @@ class Events:
                 k = irc.var.namesdict[chan][1]
                 k[msg.params] = k.pop(nick)
             except KeyError:
+                # This should not be needed now that @rpl_namreply()
+                # is fixed, but the exception will be monitored for
+                # possible future reoccurance, before it is removed.
+                self.log.debug('KeyError @Events.irc_part(). Err: 01')
                 pass
 
     def irc_mode(self, irc, msg):
@@ -207,7 +231,11 @@ class Events:
                         irc.var.namesdict[channel][1][nick].append(
                             m_dict[modes[i]])
                     except KeyError:
-                        irc.var.namesdict[channel][1].append({nick: modes[i]})
+                        # This should not be needed now that @rpl_namreply()
+                        # is fixed, but the exception will be monitored for
+                        # possible future reoccurance, before it is removed.
+                        self.log.debug('KeyError @Events.irc_mode(). Err: 01')
+                        irc.var.namesdict[channel][1].update({nick: modes[i]})
             else:
                 while i != 0:
                     i -= 1
@@ -220,7 +248,8 @@ class Events:
                     irc.var.botmodes.extend(list(msg.cmd_ls[2][1:]))
                 except IndexError:
                     # Some servers will pass the modes as params instead of as
-                    # a command.
+                    # a command. A better solution would be to have the
+                    # response as a list.
                     irc.var.botmodes.extend(list(msg.params.split()[0][1:]))
                 return
             channel = msg.cmd_ls[1]
@@ -277,6 +306,7 @@ class Main:
             self.thread_make(self.mod.mod_main,
                              (self.irc, msg.module_args_prep(self.irc),
                               msg.params.split(' ')[0], msgtype))
+        e = Events(self.log)
         while self.irc.var.conn_state == 2:
             msg = Message(self.rawqueue.get())
             msg.msg_handler()
@@ -287,22 +317,22 @@ class Main:
             elif 'PING' == msg.cmd_ls[0]:
                 self.irc.send(('PONG', msg.params))
             elif 'JOIN' == msg.cmd_ls[0]:
-                Events().irc_join(self.irc, msg)
+                e.irc_join(self.irc, msg)
                 mod_call('JOIN')
             elif 'QUIT' == msg.cmd_ls[0]:
-                Events().irc_quit(self.irc, msg)
+                e.irc_quit(self.irc, msg)
                 mod_call('QUIT')
             elif 'PART' == msg.cmd_ls[0]:
-                Events().irc_part(self.irc, msg)
+                e.irc_part(self.irc, msg)
                 mod_call('PART')
             elif 'MODE' == msg.cmd_ls[0] and\
                  msg.cmd_ls[1] in self.irc.var.namesdict:
-                Events().irc_mode(self.irc, msg)
+                e.irc_mode(self.irc, msg)
                 mod_call('MODE')
             elif ('324' or 'MODE') == msg.cmd_ls[0]:  # RPL_CHANNELMODEIS
-                Events().rpl_channelmodeis(self.irc, msg)
+                e.rpl_channelmodeis(self.irc, msg)
             elif '353' == msg.cmd_ls[0]:  # RPL_NAMREPLY
-                Events().rpl_namreply(self.irc, msg)
+                e.rpl_namreply(self.irc, msg)
 
     def thread_make(self, target, args='', daemon=False):
         thread = Thread(target=target, args=(args))
