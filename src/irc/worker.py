@@ -310,6 +310,13 @@ class Main:
         while self.irc.var.conn_state == 2:
             msg = Message(self.rawqueue.get())
             msg.msg_handler()
+
+            # User blacklist (this should be moved to recieve() along with all
+            # the msg parsing when the dataclass is implemented.)
+            # Add support for hostmasks.
+            if msg.prefix_extract()[0].lower() in self.irc.var.user_blacklist:
+                continue
+
             if 'PRIVMSG' == msg.cmd_ls[0]:
                 mod_call('PRIVMSG')
             elif 'NOTICE' == msg.cmd_ls[0]:

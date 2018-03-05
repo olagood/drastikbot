@@ -72,6 +72,8 @@ class Settings:
         self.modules_load = self.modules_obj['load']
         self.mod_glb_prefix = self.modules_obj['global_prefix']
         self.mod_chn_prefix = {}  # {#channel: cmd_prefix}
+        bl = c['irc']['user_blacklist']
+        self.user_blacklist = tuple(i.lower() for i in bl) or ()
         for chan in self.channels.keys():
             try:
                 mpref = c['irc']['channels']['settings'][chan]['prefix']
