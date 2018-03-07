@@ -160,7 +160,15 @@ class Events:
             irc.var.namesdict[channel][0].append(m[i])
 
     def irc_join(self, irc, msg):
-        nick = msg.prefix_extract()[0]
+        nick_ls = msg.prefix_extract()
+        nick = nick_ls[0]
+        # We check to see if the join command was used by the bot
+        # and get the hostmask and call a function to calculate and
+        # set irc.var.msg_len
+        if nick == irc.var.curr_nickname:
+            irc.var.bot_hostmask = nick_ls[2]
+            irc.set_msg_len(nick_ls)
+
         try:
             channel = msg.params.split()[0]
         except IndexError:

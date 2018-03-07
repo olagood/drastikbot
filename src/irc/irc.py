@@ -40,6 +40,7 @@ class Settings:
 
         # Runtime Variables
         self.curr_nickname = ''        # Nickname currently used
+        self.bot_hostmask = ''         # Hostmask issued by the server
         self.alt_nickname = False      # Alternative nickname used
         self.connected_ip = ''         # IP of the connected IRC server
         self.connected_host = ''       # Hostname of the connected server
@@ -72,8 +73,13 @@ class Settings:
         self.modules_load = self.modules_obj['load']
         self.mod_glb_prefix = self.modules_obj['global_prefix']
         self.mod_chn_prefix = {}  # {#channel: cmd_prefix}
-        bl = c['irc']['user_blacklist']
-        self.user_blacklist = tuple(i.lower() for i in bl) or ()
+        # User Blacklist
+        try:
+            bl = c['irc']['user_blacklist']
+        except KeyError:
+            bl = ()
+        self.user_blacklist = tuple(i.lower() for i in bl)
+
         for chan in self.channels.keys():
             try:
                 mpref = c['irc']['channels']['settings'][chan]['prefix']
@@ -87,6 +93,12 @@ class Drastikbot():
         self.cd = conf_dir
         self.log = dbot_tools.Logger(self.cd, 'runtime.log')
         self.var = Settings(self.cd)
+
+    def set_msg_len(self, nick_ls):
+        u = f"{nick_ls[0]}!{nick_ls[1]}@{nick_ls[2]} "
+        c = len(u.encode('utf-8'))
+        self.var.msg_len = 512 - c
+        print(self.var.msg_len)
 
     def send(self, cmds, text=None):  # textFix stuff and send them
         m_len = self.var.msg_len
