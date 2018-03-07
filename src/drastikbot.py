@@ -24,6 +24,7 @@ along with Drastikbot. If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 import argparse
+import traceback
 from pathlib import Path
 
 from dbot_tools import Logger
@@ -61,6 +62,7 @@ def startIRC(conf_dir):
     except Exception as e:
         Logger(conf_dir, 'runtime.log').debug('Exception on startIRC(): {}'
                                               .format(e))
+        print(e, traceback.print_exc())
 
 
 parser()
