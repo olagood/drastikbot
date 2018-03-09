@@ -28,6 +28,7 @@ along with Drastikbot. If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
 import json
+import sys
 from pathlib import Path
 
 
@@ -137,7 +138,7 @@ class Logger:
             Path(log_dir).mkdir(parents=True, exist_ok=True)
         self.log_file = Path('{}/{}'.format(log_dir, log_filename))
         try:
-            self.log_mode = config['sys']['log_mode'].lower()
+            self.log_mode = config['sys']['log_level'].lower()
         except KeyError:
             self.log_mode = 'info'
         try:
@@ -158,10 +159,13 @@ class Logger:
                     self.log_file.rename(rotate_p)
                     break
 
-    def log_write(self, msg, line):
+    def log_write(self, msg, line, debug=False):
         with open(str(self.log_file), 'a+') as log:
             log.write(line + '\n')
-        print(msg)
+        if not debug:
+            print(msg)
+        else:
+            print(line)
         self.log_rotate()
 
     def info(self, msg):
@@ -172,8 +176,6 @@ class Logger:
 
     def debug(self, msg):
         if self.log_mode == 'debug':
-            getframe = 'sys._getframe({}).f_code.co_name'
-            caller_name = getframe.format(2)
-            line = '{} - DEBUG - {} - {}'.format(
-                datetime.datetime.now(), caller_name, msg)
-            self.log_write(msg, line)
+            caller_name = sys._getframe(1).f_code.co_name
+            line = f'{datetime.datetime.now()} - DEBUG - {caller_name} - {msg}'
+            self.log_write(msg, line, debug=True)
