@@ -98,7 +98,6 @@ class Drastikbot():
         u = f"{nick_ls[0]}!{nick_ls[1]}@{nick_ls[2]} "
         c = len(u.encode('utf-8'))
         self.var.msg_len = 512 - c
-        print(self.var.msg_len)
 
     def send(self, cmds, text=None):  # textFix stuff and send them
         m_len = self.var.msg_len
