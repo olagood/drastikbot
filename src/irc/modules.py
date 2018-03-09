@@ -30,6 +30,22 @@ import sqlite3
 from dbot_tools import Config, Logger
 
 
+class Info:
+    def __init__(self):
+        self.cmd = ''
+        self.channel = ''
+        self.nickname = ''
+        self.username = ''
+        self.hostname = ''
+        self.msg = ''
+        self.msg_nocmd = ''
+        self.cmd_prefix = ''
+        self.msgtype = ''
+        self.msg_raw = ''
+        self.db = False
+        self.mem = False
+
+
 class Modules:
     def __init__(self, conf_dir, irc):
         self.cd = conf_dir
@@ -137,38 +153,53 @@ class Modules:
         else:
             return False
 
-    def mod_main_(self, mod, value, command, args):
-        if value['auto']:
+    def info_prep(self, info, db, msgtype):
+        i = Info()
+        i.channel = info[0]
+        i.nickname = info[1][0]
+        i.username = info[1][1]
+        i.hostname = info[1][2]
+        i.msg = info[2][0]
+        i.msg_nocmd = info[2][1]
+        i.cmd_prefix = info[3]
+        i.msgtype = msgtype
+        i.msg_raw = info[4]
+        i.db = db
+        i.mem = False
+        return i
+
+    def mod_init(self, cmd, cmdset, command, args):
+        if cmdset['auto']:
             try:
-                self.modules[mod].main('', *args)
+                self.modules[cmd].main(*args)
             except Exception:
                 self.log.debug(' -- Module "{}" exitted with error: {}'
-                               .format(mod, traceback.print_exc()))
-        for cmd in value['commands']:
+                               .format(cmd, traceback.print_exc()))
+        for c in cmdset['commands']:
             try:
-                if command == args[0][3] + cmd:
-                    self.modules[mod].main(cmd, *args)
+                if command == args[0].cmd_prefix + c:
+                    args[0].cmd = c  # Set the i.cmd variable
+                    self.modules[cmd].main(*args)
             except Exception:
                 self.log.debug(' -- Module "{}" exitted with error: {}'
-                               .format(mod, traceback.print_exc()))
+                               .format(cmd, traceback.print_exc()))
 
     def mod_main(self, irc, info, command, msgtype):
         self.mod_reload()
-        database = [self.dbmem, self.dbdisk]
-        for mod, value in self.cmd_dict.items():
-            if self.blacklist(mod, info[0]):
+        db = [self.dbmem, self.dbdisk]
+        for cmd, cmdset in self.cmd_dict.items():
+            if self.blacklist(cmd, info[0]):
                 continue
-            if self.whitelist(mod, info[0]):
+            if self.whitelist(cmd, info[0]):
                 continue
-            if msgtype not in value['msgtypes']:
+            if msgtype not in cmdset['msgtypes']:
                 continue
-            if value['sysmode']:
-                self.mod_main_(mod, value, command,
-                               (info, database, irc, msgtype,
-                                [self.modules, self.mod_import]))
+            i = self.info_prep(info, db, msgtype)
+            if cmdset['sysmode']:
+                self.mod_init(cmd, cmdset, command,
+                              (i, irc, [self.modules, self.mod_import]))
             else:
-                self.mod_main_(mod, value, command,
-                               (info, database, irc, msgtype))
+                self.mod_init(cmd, cmdset, command, (i, irc))
 
     def mod_startup(self, irc):
         '''
@@ -184,15 +215,14 @@ class Modules:
         The "info" tuple is perfectly matched by blank strings.
         '''
         self.mod_reload()
-        database = [self.dbmem, self.dbdisk]
+        db = [self.dbmem, self.dbdisk]
         info = ("", ("", "", ""), ("", ""), "", "")
-        for mod, value in self.cmd_dict.items():
-            if not value['startup']:
+        for cmd, cmdset in self.cmd_dict.items():
+            if not cmdset['startup']:
                 continue
-            if value['sysmode']:
-                self.mod_main_(mod, value, "STARTUP",
-                               (info, database, irc, "STARTUP",
-                                [self.modules, self.mod_import]))
+            i = self.info_prep(info, db, "STARTUP")
+            if cmdset['sysmode']:
+                self.mod_init(cmd, cmdset, "STARTUP",
+                              (i, irc, [self.modules, self.mod_import]))
             else:
-                self.mod_main_(mod, value, "STARTUP",
-                               (info, database, irc, "STARTUP"))
+                self.mod_init(cmd, cmdset, "STARTUP", (i, irc))
