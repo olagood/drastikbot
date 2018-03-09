@@ -162,13 +162,6 @@ class Events:
     def irc_join(self, irc, msg):
         nick_ls = msg.prefix_extract()
         nick = nick_ls[0]
-        # We check to see if the join command was used by the bot
-        # and get the hostmask and call a function to calculate and
-        # set irc.var.msg_len
-        if nick == irc.var.curr_nickname:
-            irc.var.bot_hostmask = nick_ls[2]
-            irc.set_msg_len(nick_ls)
-
         try:
             channel = msg.params.split()[0]
         except IndexError:
@@ -178,11 +171,13 @@ class Events:
         try:
             irc.var.namesdict[channel][1][nick] = []
         except KeyError:
-            # This should not be needed now that @rpl_namreply()
-            # is fixed, but the exception will be monitored for
-            # possible future reoccurance, before it is removed.
-            self.log.debug('KeyError @Events.irc_part(). Err: 01')
-            pass
+            # This occures when first joining a channel for the first time.
+            # We take advantage of this to efficiently:
+            # Get the hostmask and call a function to calculate and set
+            # the irc.var.msg_len variable.
+            if nick == irc.var.curr_nickname:
+                irc.var.bot_hostmask = nick_ls[2]
+                irc.set_msg_len(nick_ls)
 
     def irc_part(self, irc, msg):
         nick = msg.prefix_extract()[0]
@@ -247,8 +242,17 @@ class Events:
             else:
                 while i != 0:
                     i -= 1
-                    irc.var.namesdict[channel][1][msg.cmd_ls[3+i]].remove(
-                        m_dict[modes[i]])
+                    try:
+                        irc.var.namesdict[channel][1][msg.cmd_ls[3+i]].remove(
+                            m_dict[modes[i]])
+                    except AttributeError:
+                        self.log.debug('AttributeError @Events.irc_mode(). '
+                                       'Err: 02')
+                        # Quick hack for to avoid crashes in cases where a mode
+                        # doesnt use a nickname. (For instance setting +b on a
+                        # hostmask). Should be properly handled, after this
+                        # method gets broken into smaller parts.
+                        pass
         else:
             # MODE used on a channel
             if msg.cmd_ls[1] == irc.var.curr_nickname:
