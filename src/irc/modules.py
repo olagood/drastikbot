@@ -31,19 +31,8 @@ from dbot_tools import Config, Logger
 
 
 class Info:
-    def __init__(self):
-        self.cmd = ''
-        self.channel = ''
-        self.nickname = ''
-        self.username = ''
-        self.hostname = ''
-        self.msg = ''
-        self.msg_nocmd = ''
-        self.cmd_prefix = ''
-        self.msgtype = ''
-        self.msg_raw = ''
-        self.db = False
-        self.mem = False
+    __slots__ = ['cmd', 'channel', 'nickname', 'username', 'hostname', 'msg',
+                 'msg_nocmd', 'cmd_prefix', 'msgtype', 'msg_raw', 'db', 'mem']
 
 
 class Modules:
