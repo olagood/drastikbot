@@ -110,15 +110,26 @@ class Modules:
         '''
         Read the configuration file and get the
         blacklist for the given module.
-        Then return True if the module is blacklisted
-        in the given channel or False if not.
+        Then return False if the module is not blacklisted
+        in the given channel or True if it is blacklisted.
         '''
         try:
             blacklist = self.irc.var.modules_obj[
                 'settings'][module]['blacklist']
-        except KeyError:
-            blacklist = ''
-        if channel in blacklist:
+        except KeyError as e:
+            if e.args[0] == 'settings':
+                self.irc.var.modules_obj.update(
+                    {'settings': {module: {'blacklist': []}}})
+            elif e.args[0] == module:
+                self.irc.var.modules_obj['settings'].update(
+                    {module: {'blacklist': []}})
+            elif e.args[0] == 'blacklist':
+                self.irc.var.modules_obj['settings'][module].update(
+                    {'blacklist': []})
+            return False
+        if not blacklist:
+            return False
+        elif channel in blacklist:
             return True
         else:
             return False
@@ -135,15 +146,27 @@ class Modules:
         try:
             whitelist = self.irc.var.modules_obj[
                 'settings'][module]['whitelist']
-        except KeyError:
-            whitelist = ''
-        if channel not in whitelist and whitelist != '':
+        except KeyError as e:
+            if e.args[0] == 'settings':
+                self.irc.var.modules_obj.update(
+                    {'settings': {module: {'whitelist': []}}})
+            elif e.args[0] == module:
+                self.irc.var.modules_obj['settings'].update(
+                    {module: {'whitelist': []}})
+            elif e.args[0] == 'whitelist':
+                self.irc.var.modules_obj['settings'][module].update(
+                    {'whitelist': []})
+            return False
+        if not whitelist:
+            return True
+        elif channel in whitelist:
             return True
         else:
             return False
 
     def info_prep(self, info, db, msgtype):
         i = Info()
+        i.cmd = ''
         i.channel = info[0]
         i.nickname = info[1][0]
         i.username = info[1][1]
@@ -179,7 +202,7 @@ class Modules:
         for cmd, cmdset in self.cmd_dict.items():
             if self.blacklist(cmd, info[0]):
                 continue
-            if self.whitelist(cmd, info[0]):
+            if not self.whitelist(cmd, info[0]):
                 continue
             if msgtype not in cmdset['msgtypes']:
                 continue
