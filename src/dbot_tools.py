@@ -3,7 +3,6 @@
 
 # Common tools used by the bot and it's modules.
 # Tools: - text_fix: decode message and remove whitespace
-#        - Message : split irc message strings
 #        - Config  : config file reader and writer
 #        - Logger  : Logger functions
 
@@ -33,68 +32,30 @@ from pathlib import Path
 
 
 def text_fix(line):
-    try:
+    if not isinstance(line, str):
         line = line.decode('utf8', errors='ignore')
-    except Exception:
-        # Catch UnicodeDecode errors and silently ignore them.
-            pass
+
     # Remove "\r\n" and all whitespace.
-    line = " ".join(line.split())
+    #    line = line.replace("\\r", "").replace("\\n", "")
+    #    line = line.replace("\r", "").replace("\n", "")
+    line = ''.join(line.splitlines())
     return line
 
 
-class Message:
-    def __init__(self, msg_raw):
-        self.msg_raw = msg_raw
-
-    def msg_handler(self):
-        self.msg = text_fix(self.msg_raw)
-        print(self.msg)
-        # Split the message in [Prefix Command] and [Params]
-        msg_sp = self.msg.split(" :", 1)
-        # Split [Prefix Command] in [Prefix] [Command]
-        prefcmd_sp = msg_sp[0].split(" ", 1)
-        # Remove ":" from the prefix
-        self.prefix = prefcmd_sp[0][1:]
-        # Split the irc commands in a list
-        try:
-            self.cmd_ls = prefcmd_sp[1].split()
-        except IndexError:
-            self.cmd_ls = prefcmd_sp[0].split()
-        # Get the params
-        try:
-            self.params = msg_sp[1]
-        except IndexError:
-            self.params = ''
-
-    def prefix_extract(self):
-        try:
-            prefix_list = self.prefix.split('!', 1)
-            nickname = prefix_list[0]
-            username = prefix_list[1].split('@', 1)[0]
-            hostname = prefix_list[1].split('@', 1)[1]
-            return (nickname, username, hostname)
-        except IndexError:
-            return (nickname, '', '')
-
-    def module_args_prep(self, irc):
-        user_info = self.prefix_extract()
-        try:
-            channel = self.cmd_ls[1]
-        except IndexError:
-            channel = ''
-        if channel == irc.var.curr_nickname:
-            channel = user_info[0]
-        try:
-            self.params_nocmd = self.params.split(' ', 1)[1].strip()
-        except IndexError:
-            self.params_nocmd = ''
-        try:
-            chn_prefix = irc.var.mod_chn_prefix[channel]
-        except KeyError:
-            chn_prefix = irc.var.mod_glb_prefix
-        return (channel, user_info, (self.params, self.params_nocmd),
-                chn_prefix, self.msg_raw)
+def p_truncate(text, whole, percent, ellipsis=False):
+    if not isinstance(text, str):
+        raise TypeError("'text' must be str, not bytes")
+        return
+    t = text.encode('utf-8')
+    lim = int((whole * percent) / 100)
+    if not len(t) > lim:
+        return t.decode('utf8', errors='ignore')
+    e = b'...'
+    if ellipsis:
+        t = t[:lim + len(e)].rsplit(b' ', 1)[0] + e
+    else:
+        t = t[:lim].rsplit(b' ', 1)[0]
+    return t.decode('utf8', errors='ignore')
 
 
 class Config:
@@ -134,6 +95,7 @@ class Logger:
             log_dir = config['sys']['log_dir']
         except KeyError:
             log_dir = conf_dir + '/logs'
+            self.log_dir = log_dir
         if not Path(log_dir).exists():
             Path(log_dir).mkdir(parents=True, exist_ok=True)
         self.log_file = Path('{}/{}'.format(log_dir, log_filename))
@@ -151,8 +113,10 @@ class Logger:
         if current_log_size > self.log_size:
             while True:
                 n = 1
-                rotate_p = Path(self.log_file.stem + n + "".join(
-                    self.log_file.suffixes))
+                np = (self.log_dir + self.log_file.stem +
+                      str(n) + "".join(self.log_file.suffixes))
+                rotate_p = Path(np)
+                print('Changing Log file to:' + np)
                 if rotate_p.exists():
                     n += 1
                 else:
@@ -169,7 +133,7 @@ class Logger:
         self.log_rotate()
 
     def info(self, msg):
-        if self.log_mode == ('info' or 'debug'):
+        if self.log_mode == 'info' or self.log_mode == 'debug':
             line = '{} - INFO - {}'.format(
                 datetime.datetime.now(), msg)
             self.log_write(msg, line)

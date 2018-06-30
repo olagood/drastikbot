@@ -22,13 +22,18 @@ You should have received a copy of the GNU General Public License
 along with Drastikbot. If not, see <http://www.gnu.org/licenses/>.
 '''
 
+import os
 import sys
+import signal
 import argparse
 import traceback
 from pathlib import Path
 
 from dbot_tools import Logger
 from irc.worker import Main
+
+# Get the project's root directory
+proj_path = os.path.dirname(os.path.abspath(__file__))
 
 
 def parser():
@@ -51,18 +56,16 @@ def parser():
             conf_dir = str(path)
 
     logger = Logger(conf_dir, 'runtime.log')
-    logger.info('\nDrastikbot v2\n')
-    startIRC(conf_dir)
+    logger.info('\nDrastikbot: Starting...\n')
+    return conf_dir
 
 
-def startIRC(conf_dir):
-    c = Main(conf_dir)
+if __name__ == "__main__":
+    conf_dir = parser()
+    c = Main(conf_dir, proj_path)
     try:
+        signal.signal(signal.SIGINT, c.sigint_hdl)
         c.main()
     except Exception as e:
-        Logger(conf_dir, 'runtime.log').debug('Exception on startIRC(): {}'
-                                              .format(e))
-        print(e, traceback.print_exc())
-
-
-parser()
+        logger = Logger(conf_dir, 'runtime.log')
+        logger.debug(f'Exception on startIRC(): {e} {traceback.print_exc()}')

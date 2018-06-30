@@ -26,13 +26,77 @@ import sys
 from pathlib import Path, PurePath
 import importlib
 import traceback
+import inspect
 import sqlite3
 from dbot_tools import Config, Logger
 
 
+class VariableMemory:
+    def varset(self, name, value):
+        """
+        Set a variable to be kept in the bot's memory.
+
+        'name' is the name of the variable.
+        'value' is the variable's value.
+
+        The name of the actual saved variable is not the actual name given, but
+        <calling module's name>_<'name'>. e.g sed_msgdict.
+        This is to allow different modules have any variable and make accessing
+        those variables easier.
+        """
+        # Get the caller module's name:
+        frm = inspect.stack()[1]
+        mod = inspect.getmodule(frm[0]).__name__
+        # Check if it's a call from this module. (modules.py)
+        if mod == __loader__.name:
+            return
+        else:
+            name = f"{mod}_{name}"
+
+        setattr(self, name, value)
+
+    def varget(self, name, defval=False, raw=False):
+        """
+        Get a variable from the bot's memory.
+        'name' is the name of the variable.
+        'defval' is the default to set if no variable is already set.
+        'raw' if True will not append the module's name in frond of 'name'.
+              This is to access variables from other modules.
+
+        If both 'defval' and 'raw' are non False but the variable cannon be
+        found an AttributeError is raised.
+        """
+        if not raw:
+            # Get the caller module's name:
+            frm = inspect.stack()[1]
+            mod = inspect.getmodule(frm[0]).__name__
+            # Check if it's a call from this module. (modules.py)
+            if mod == __loader__.name:
+                return
+            name = f"{mod}_{name}"
+
+        try:
+            return getattr(self, name)
+        except AttributeError:
+            if defval and not raw:
+                self.varset(name, defval)
+                return defval
+            else:
+                raise AttributeError(f"'{name}' has no value set. "
+                                     "Try passing a default value"
+                                     " or set 'raw=False'")
+
+
 class Info:
+    """
+    This class is used for setting up message and runtime variables by
+    Modules.info_prep() and is passed to the modules.
+    """
     __slots__ = ['cmd', 'channel', 'nickname', 'username', 'hostname', 'msg',
-                 'msg_nocmd', 'cmd_prefix', 'msgtype', 'msg_raw', 'db', 'mem']
+                 'msg_nocmd', 'cmd_prefix', 'msgtype', 'msg_raw', 'db',
+                 'msg_ls', 'msg_prefix', 'cmd_ls', 'msg_full', 'modules',
+                 'command_dict', 'auto_list', 'mod_import', 'blacklist',
+                 'whitelist', 'msg_params', 'varget', 'varset']
 
 
 class Modules:
@@ -40,22 +104,27 @@ class Modules:
         self.cd = conf_dir
         self.irc = irc
         self.log = Logger(self.cd, 'modules.log')
+        self.varmem = VariableMemory()
 
         self.modules = {}   # {Module Name : Module Callable}
-        self.cmd_dict = {}  # {Module Name :
-        #                      {commands: [], auto: True,
-        #                       sysmode: True, msgtypes: []}}
+
+        self.msgtype_dict = {}  # {msgtype: [module1, ...]}
+        self.auto_list = []  # [module1, ...]
+        self.startup_list = []  # [module1, ...]
+        self.command_dict = {}  # {command1: module}
         # Databases #
         self.dbmem = sqlite3.connect(':memory:', check_same_thread=False)
         self.dbdisk = sqlite3.connect('{}/drastikbot.db'.format(self.cd),
                                       check_same_thread=False)
         self.mod_settings = {}  # {Module Name : {setting : value}}
 
-    def mod_import(self):
-        # import modules specified in the configuration file
-        self.log.info('\n - Loading Modules:\n')
-        importlib.invalidate_caches()
-        module_dir = self.cd + '/modules'
+    def mod_imp_prep(self, module_dir, auto=False):
+        '''
+        Search a directory for modules, check if they are listed in the config
+        file and return a list of the modules.
+        If 'auto' is True load all the modules without checking the config
+        file (used for core modules needed for the bot's operation).
+        '''
         path = Path(module_dir)
         load = Config(self.cd).read()['irc']['modules']['load']
         if not path.is_dir():
@@ -72,8 +141,29 @@ class Modules:
         for f in files:
             suffix = PurePath(f).suffix
             prefix = PurePath(f).stem
-            if (suffix == '.py') and (prefix in load):
-                modimp_list.append(prefix)
+            if suffix == '.py':
+                if auto:
+                    modimp_list.append(prefix)
+                elif prefix in load:
+                    modimp_list.append(prefix)
+        return modimp_list
+
+    def mod_import(self):
+        """
+        Import modules specified in the configuration file.
+        Check for values specified in the Module() class of every module and
+        set the variables declared in __init__() for later use.
+        """
+        self.log.info('\n> Loading Modules:\n')
+
+        importlib.invalidate_caches()
+
+        modimp_list = []
+        module_dir = self.cd + '/modules'
+        modimp_list.extend(self.mod_imp_prep(module_dir))
+        module_dir = self.irc.var.proj_path + '/irc/modules'
+        modimp_list.extend(self.mod_imp_prep(module_dir, auto=True))
+
         for m in modimp_list:
             try:
                 modimp = importlib.import_module(m)
@@ -82,36 +172,48 @@ class Modules:
                 # Read the module's "Module()" class to
                 # get the required runtime information,
                 # such as: commands, sysmode
-                mod = modimp.Module()
+                try:
+                    mod = modimp.Module()
+                except AttributeError:
+                    self.log.info(f'<!> Module "{m}" does not have a Module() '
+                                  'class and was not loaded.')
+
+                commands = [c for c in getattr(mod, 'commands', [])]
+                for c in commands:
+                    if c in self.command_dict:
+                        self.log.info(f'<!> Command "{c}" is already used by '
+                                      f'"{self.command_dict[c]}.py", but is '
+                                      f'also requested by "{m}.py".')
+                        sys.exit(1)
+                    self.command_dict[c] = m
                 msgtypes = [m.upper() for m in getattr(
                     mod, 'msgtypes', ['PRIVMSG'])]
-                self.cmd_dict[m] = {'auto':     getattr(mod, 'auto', False),
-                                    'sysmode':  getattr(mod, 'system', False),
-                                    'startup':  getattr(mod, 'startup', False),
-                                    'commands': getattr(mod, 'commands', []),
-                                    'msgtypes': msgtypes}
-                self.log.info('- Loaded module: {}'.format(m))
-            except Exception as e:
-                print(e)
-                self.log.debug('-- Module "{}" failed to load: '
-                               'See modules.log for details'.format(m))
+                for i in msgtypes:
+                    self.msgtype_dict.setdefault(i, []).append(m)
+                if getattr(mod, 'auto', False):
+                    self.auto_list.append(m)
+                if getattr(mod, 'startup', False):
+                    self.startup_list.append(m)
+
+                self.log.info('> Loaded module: {}'.format(m))
+            except Exception:
+                self.log.debug(f'<!> Module "{m}" failed to load: '
+                               f'\n{traceback.format_exc()}')
 
     def mod_reload(self):
         '''
         Reload the already imported modules.
-        WARNING: Changes in the module() class are
-        not being taken into account by the bot
-        when reloaded using this method.
+        WARNING: Changes in the Module() class are not reloaded using this
+        method. Reimport the modules (with self.mod_import()) to do that.
         '''
         for value in self.modules.values():
             importlib.reload(value)
 
     def blacklist(self, module, channel):
         '''
-        Read the configuration file and get the
-        blacklist for the given module.
-        Then return False if the module is not blacklisted
-        in the given channel or True if it is blacklisted.
+        Read the configuration file and get the blacklist for the given module.
+        Then return False if the module is not blacklisted in the given channel
+        or True if it is blacklisted.
         '''
         try:
             blacklist = self.irc.var.modules_obj[
@@ -136,12 +238,10 @@ class Modules:
 
     def whitelist(self, module, channel):
         '''
-        Read the configuration file and get the
-        whitelist for the given module.
-        Then return True if the module is not whitelisted
-        in the given channel and the whitelist exists
-        or False if it is whitelisted or the whitelist does
-        not exist.
+        Read the configuration file and get the whitelist for the given module.
+        Then return True if the module is not whitelisted in the given channel
+        and the whitelist exists or False if it is whitelisted or the whitelist
+        does not exist.
         '''
         try:
             whitelist = self.irc.var.modules_obj[
@@ -156,7 +256,7 @@ class Modules:
             elif e.args[0] == 'whitelist':
                 self.irc.var.modules_obj['settings'][module].update(
                     {'whitelist': []})
-            return False
+            return True
         if not whitelist:
             return True
         elif channel in whitelist:
@@ -164,77 +264,127 @@ class Modules:
         else:
             return False
 
-    def info_prep(self, info, db, msgtype):
+    def info_prep(self, msg):
+        """
+        Set values in the Info() class and return that class.
+
+        --Notes:
+        i.cmd :: The module command without the prefix.
+                 Values are set by mod_main() before calling the module.
+                 In "Auto" modules this will remain as an empty string.
+        i.msg :: Instead of setting the msg.msg value, we set msg.params,
+                 to achieve a better looking API. Instead "i.msg_full" is
+                 set to msg.msg
+        i.msg_params :: It is the same as i.msg, we use this to match the
+                        RFC's terminology.
+        """
         i = Info()
         i.cmd = ''
-        i.channel = info[0]
-        i.nickname = info[1][0]
-        i.username = info[1][1]
-        i.hostname = info[1][2]
-        i.msg = info[2][0]
-        i.msg_nocmd = info[2][1]
-        i.cmd_prefix = info[3]
-        i.msgtype = msgtype
-        i.msg_raw = info[4]
-        i.db = db
-        i.mem = False
+        i.channel = msg.channel
+        i.nickname = msg.nickname
+        i.username = msg.username
+        i.hostname = msg.hostname
+        i.msg_raw = msg.msg_raw
+        i.msg_full = msg.msg
+        i.msg = msg.params
+        i.msg_nocmd = msg.params_nocmd
+        i.msg_ls = msg.msg_ls
+        i.msg_prefix = msg.prefix
+        i.msg_params = msg.params
+        i.cmd_ls = msg.cmd_ls
+        i.cmd_prefix = msg.chn_prefix
+        i.msgtype = msg.msgtype
+        i.db = [self.dbmem, self.dbdisk]
+        i.varset = self.varmem.varset
+        i.varget = self.varmem.varget
+        i.modules = self.modules
+        i.command_dict = self.command_dict
+        i.auto_list = self.auto_list
+        i.blacklist = self.blacklist
+        i.whitelist = self.whitelist
+        i.mod_import = self.mod_import
         return i
 
-    def mod_init(self, cmd, cmdset, command, args):
-        if cmdset['auto']:
+    def mod_main(self, irc, msg, command):
+        def cmd_modules():
             try:
-                self.modules[cmd].main(*args)
-            except Exception:
-                self.log.debug(' -- Module "{}" exitted with error: {}'
-                               .format(cmd, traceback.print_exc()))
-        for c in cmdset['commands']:
-            try:
-                if command == args[0].cmd_prefix + c:
-                    args[0].cmd = c  # Set the i.cmd variable
-                    self.modules[cmd].main(*args)
-            except Exception:
-                self.log.debug(' -- Module "{}" exitted with error: {}'
-                               .format(cmd, traceback.print_exc()))
+                module = self.command_dict[command[1:]]
+            except KeyError:
+                return
+            if self.blacklist(module, i.channel):
+                return
+            if not self.whitelist(module, i.channel):
+                return
+            if module in md:
+                # We set i.cmd to the command's name.
+                i.cmd = command[1:]
+                try:
+                    self.modules[module].main(*args)
+                except Exception:
+                    self.log.debug(f'<!> Module "{module}" exitted with error:'
+                                   f'\n{traceback.format_exc()}')
 
-    def mod_main(self, irc, info, command, msgtype):
-        self.mod_reload()
-        db = [self.dbmem, self.dbdisk]
-        for cmd, cmdset in self.cmd_dict.items():
-            if self.blacklist(cmd, info[0]):
+        self.mod_reload()  # Reload the bot's modules.
+        i = self.info_prep(msg)
+        args = (i, irc)
+
+        try:
+            md = self.msgtype_dict[msg.msgtype]
+        except KeyError:
+            # No modules use this message type, return.
+            return
+
+        if command[:1] == i.cmd_prefix:
+            cmd_modules()
+
+        for m in list(set(self.auto_list).intersection(md)):
+            if self.blacklist(m, i.channel):
                 continue
-            if not self.whitelist(cmd, info[0]):
+            if not self.whitelist(m, i.channel):
                 continue
-            if msgtype not in cmdset['msgtypes']:
-                continue
-            i = self.info_prep(info, db, msgtype)
-            if cmdset['sysmode']:
-                self.mod_init(cmd, cmdset, command,
-                              (i, irc, [self.modules, self.mod_import]))
-            else:
-                self.mod_init(cmd, cmdset, command, (i, irc))
+            try:
+                # We set i.cmd to False to indicate that it's an auto call.
+                i.cmd = ""
+                self.modules[m].main(*args)
+            except Exception:
+                self.log.debug(f'<!> Module "{m}" exitted with error: '
+                               f'\n{traceback.format_exc()}')
 
     def mod_startup(self, irc):
         '''
-        Run modules configured with the "self.startup = True"
-        option.
+        Run modules configured with the "self.startup = True" option.
         The bot doesn't manage the modules after they get started.
-        This could be problematic for module that are blocking and
-        so they should periodically check the bot's connection
-        state (e.g. by checking the value of "irc.var.conn_state") and
-        handle a possible disconnect.
+        This could be problematic for modules that are blocking and so they
+        should periodically check the bot's connection state (e.g. by checking
+        the value of "irc.var.conn_state") and handle a possible disconnect.
         The bot's whitelist/blacklist is not being taken into account.
         The "msgtype" and "cmd" passed to the modules is "STARTUP".
         The "info" tuple is perfectly matched by blank strings.
         '''
-        self.mod_reload()
-        db = [self.dbmem, self.dbdisk]
-        info = ("", ("", "", ""), ("", ""), "", "")
-        for cmd, cmdset in self.cmd_dict.items():
-            if not cmdset['startup']:
-                continue
-            i = self.info_prep(info, db, "STARTUP")
-            if cmdset['sysmode']:
-                self.mod_init(cmd, cmdset, "STARTUP",
-                              (i, irc, [self.modules, self.mod_import]))
-            else:
-                self.mod_init(cmd, cmdset, "STARTUP", (i, irc))
+        def info_prep_startup():
+            '''
+            Special use of the Info class that includes only the variables
+            available at startup.
+            '''
+            i = Info()
+            i.cmd = ''
+            i.msgtype = "STARTUP"  # Indicate that this is a startup call.
+            i.db = [self.dbmem, self.dbdisk]
+            i.varget = self.varmem.varget
+            i.varset = self.varmem.varset
+            i.modules = self.modules
+            i.mod_import = self.mod_import
+            return i
+
+        self.mod_reload()  # Reload the bot's modules.
+        i = info_prep_startup()
+        args = (i, irc)
+
+        for m in self.startup_list:
+            try:
+                # We set i.cmd to False to indicate that it's an auto call.
+                i.cmd = ""
+                self.modules[m].main(*args)
+            except Exception:
+                self.log.debug(f'<!> Module "{m}" exitted with error: '
+                               f'\n{traceback.format_exc()}')
