@@ -1,0 +1,181 @@
+body {
+    background-color: #E7E9E7;
+    font-weight: normal;
+    font-style: normal;
+}
+
+body, html {
+    font-size: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+/*---------- Menu ----------*/
+
+#menu {
+    text-align: center;
+    width: 100%;
+    margin: 0;
+    padding: 2px 0 2px 0;
+    color: #000;
+    background-color: #fff;
+ }
+
+#menu a {
+    font-family: Arial, Helvetica, sans-serif;
+    display: inline-block;
+    padding: 1px 5px 1px 5px;
+    color: #000;
+    font-size: 16px;
+    text-decoration: none;
+}
+
+#menu a:hover, a:focus {
+    color: #eee;
+    text-decoration:none;
+}
+
+#menu ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+#menu li {
+    display: inline;
+}
+/*---------- Newsboxes ----------*/
+#newsbox {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    margin: auto;
+    float: right;
+    width: 100%;
+    text-align: center;
+}
+
+#newsbox ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+#newsbox li {
+    background: #fff;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.fe_ls {
+    list-style-type: disc;
+    margin: 0 0 0 25px !important;
+    padding: 1px 0 1px 0 !important;
+}
+
+#newsbox h2, h3 {
+    text-align: center;
+    color: #000;
+}
+
+#newsbox a {
+    text-decoration: none;
+    color: #254eff;
+}
+
+#newsbox a:hover, a:focus {
+		      color: #555;
+		      text-decoration:underline;
+		  }
+#newsbox hr {
+    border: 1px solid #222;
+}
+#newsbox span.right {
+    float: right;
+}
+
+table, th, tr {
+    border: 1px solid #606060;
+    border-collapse: collapse;
+    padding:2px;
+}
+
+.code {
+    text-align: left;
+    background: #111;
+    color: #eee;
+}
+
+
+/* Documentation sidebar menu */
+#docmenu {
+    text-align: left;
+    float: left;
+    width: 15%;
+    margin: 0;
+    padding: 0 0 0 0;
+    color: #fff;
+    position: fixed;
+}
+
+#docmenu a {
+    font-family: Arial, Helvetica, sans-serif;
+    display: block;
+    padding: 10px 5px 10px 5px;
+    font-size: 14px;
+    color: #1C1C1C;
+    font-size: 14px;
+    text-decoration: none;
+    border-right: 2px solid #1C1C1C;
+}
+
+#docmenu a:hover, a:focus {
+		 background:#1C1C1C;
+		 color: #E7E9E7;
+		 text-decoration:none;
+	     }       
+
+#docmenu ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+
+
+/*----------------------------------------*/
+/*---------- Responsive Version ----------*/
+/*----------------------------------------*/
+@media all and (max-width : 800px) {
+
+    /* Documentation sidebar menu  */
+    #docmenu {
+	    text-align: center;
+	    width: 100%;
+	    margin: 0;
+	    padding: 0 0 0 0px;
+	    color: #fff;
+        position: static;
+    }
+    #docmenu h3 {
+	    display: none;
+    }
+    #docmenu a {
+        border: none;
+        margin: 10px 10px 10px 10px;
+	    padding: 3px 3px 3px 3px;
+	    display: inline;
+    }
+    
+    #docmenu ul {
+	    list-style-type: none;
+	    margin: 0;
+	    padding: 0;
+    }
+    
+    #docmenu li {
+        padding: 5px;
+	    display: inline;
+    }
+
+
+    #newsbox {
+        width: 100%;
+    }
+}

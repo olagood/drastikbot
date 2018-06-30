@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name=viewport content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Drastikbot :: Module Development</title>
+    <link type="text/css" rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/solarized-dark.min.css">
+    <script src="https:////cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </head>
+  <body>
+    <div style="background: url(res/logo.svg) center no-repeat #f5f5dc; padding:0; width:100%;
+                height:50px;"></div>
+    <div id="menu">
+      <ul>
+        <li> [ </li>
+	    <li><a href="index.html">drastikbot</a></li>
+        <li> ] </li>
+        <li> [ </li>
+	    <li><a href="quickguide.html">Quick Guide</a></li>
+        <li> ] </li>
+        <li> [ </li>
+	    <li><a href="modules.html">Module Documentation</a></li>
+        <li> ] </li>
+        <li> [ </li>
+	    <li><a href="https://github.com/olagood/drastikbot">GitHub</a></li>
+	    <li> ] </li>
+	    <li><a href="http://drastik.org">drastik.org</a></li>
+      </ul>
+    </div>
+    <div id="newsbox" style="width:85%;">
+      <ul>
+	    <li>
+	      <h2>Developing Modules for drastikbot</h2>
+        </li>
+      </ul>
+    </div>
+    <div id="docmenu">
+      <ul>
+        <li><a href="#helloworld">Hello, World!</a></li>
+        <li><a href="#module">Module() class</a></li>
+        <li><a href="#irc">irc.py</a></li>
+        <li><a href="#msg">Messages</a></li>
+        <li><a href="#vars">Persistent Variables</a></li>
+        <li><a href="#db">Databases</a></li>
+        <li><a href="#nickserv_auth">Authenticating with NickServ</a></li>
+        <li><a href="#p_truncate">Text truncation</a></li>
+        <li><a href="#config">Using the configuration file</a></li>
+        <li><a href="#about">About modules</a></li>
+      </ul>
+    </div>
+    <div id="newsbox" style="width: 85%;">
+      <ul>
+
+
+        <li id="helloworld">
+          <h3>Hello, World!</h3>
+          <p>Example of a helloworld.py module</p>
+          <div class="code"><pre><code>
+ # Hello, World! Module for Drastikbot
+ #
+ # This module sends 'Hello, World!' to the channel when
+ # the command .hello is issued.
+
+
+ class Module:
+     def __init__(self):
+         self.commands = ['hello']
+
+
+ def main(i, irc):        
+     if i.msg_nocmd == '':
+         irc.privmsg(i.channel, 'Hello, World!')
+          </code></pre></div>
+          
+          <br>
+          <p>Next, I will explain line by line what is going on.</p>
+          <div class="code"><pre><code>
+ # Hello, World! Module for Drastikbot
+ #
+ # This module sends 'Hello, World!' to the channel when
+ # the command .hello is issued.
+          </code></pre></div>
+          <p>Every module should have a comment on top. This comment should contain a
+            description of what the module does, a list of every third party dependency
+            and basic instructions on how to install them.</p>
+          <div class="code"><pre><code>
+ class Module:
+     def __init__(self):
+         self.commands = ['hello']
+          </code></pre></div>
+          <p>Next we have the Module() class. This class is called when the module is
+            imported for the first time to let drastikbot know what options the module
+            uses. We will see what these options are in the next section.</p>
+          <div class="code"><pre><code>
+ def main(i, irc):        
+     if i.msg_nocmd == '':
+         irc.privmsg(i.channel, 'Hello, World!')
+          </code></pre></div>
+          <p>The main() function is called by the bot to initiate the module. Every module
+            has a main() function that takes two arguments. The bot will call this function
+            every time the module needs to execute a command.</p>
+          <p>The first argument "i" points to a class that contains the message, the sender,
+            runtime functions and many other things that will be explained in more detail
+            in the section <a href="#msg">Messages</a>.</p>
+          <p>The second argument "irc" gives access to functions for communicating with
+            the IRC server and various runtime variables.</p>
+          <p>In the last two lines we check if "i.msg_nocmd" is empty, which means that there
+            was nothing after the .hello command and then send a PRIVMSG to the channel
+            we got the commands from.</p>
+        </li>
+
+
+        <li id="module">
+          <h3>The Module() class</h3>
+          <p>As explained above the Module() class is called when drastikbot imports it's
+            modules during startup. Using the grid.py module (or your own module) you can
+            reload the Module() classes of the loaded modules.</p>
+          <p>In the <b>__init__</b> method we can add the following options: 
+          <div class="code"><pre><code>
+ class Module:
+     def __init__(self):
+         self.commands = ['command', 'command2']
+         self.auto = True
+         self.msgtype = ['NOTICE', 'PRIVMSG']
+         self.helpmsg = ['This is the Module() class where we set out options.']
+          </code></pre></div>
+          <p style="text-align: left;"><b>self.commands</b>
+            : This is a list of the commands the bot should call this module for. Notice
+            that if two or mode modules have the same commands the bot will exit and output
+            a relevant error message. The commands are case sensitive.</p>
+          <p style="text-align: left;"><b>self.auto</b>
+            : Setting this option to True will make the bot call this module on every
+            message sent by the server (as long as the "msgtype" matches, see below).</p>
+          <p style="text-align: left;"><b>self.msgtype</b>
+            : Message types refer to the IRC commands sent by the server. Such commands are
+            PRIVMSG, NOTICE, JOIN etc. This option takes a list of such commands and the bot
+            will only call the modules based on this list. You may not use this option at all
+            if all you need is PRIVMSG (normal IRC messages) as this is the default message
+            type used when this option is absent from the Modules() class.</p>
+          <p style="text-align: left;"><b>self.helpmsg</b>
+            : This is not a built in option but an extension added by the help.py module.
+            It takes a list of strings and outputs them when the command .help [module name]
+            is given to the bot, provided that help.py is loaded. Do not use this option if
+            you don't want help.py to list you module. If you do want to be listed, then a
+            help message must be added.</p>
+        </li>
+
+        
+        <li id="irc">
+          <h3>irc.py</h3>
+          <p>The irc.py file contains runtime variables and methods to interact with the IRC
+            server. It can be accessed through the second argument of the main() function as
+            described in the first section.</p><br>
+          <h4 style="text-align: left;">Variables</h4>
+          <p>Variables are split in two categories. Runtime variables that are updated
+            during the bot's runtime automatically and Configuration variables that are
+            values from the configuration file and are reloaded only after irc.config_load()
+            is called.</p>
+
+          <br><b>Runtime Variables</b>
+          <p style="text-align: left;"><b>irc.cd</b>
+            : This varible contains the bot's configuration directory.</p>
+          <p style="text-align: left;"><b>irc.proj_path</b>
+            : This is the root of the project. In other words this is where the bot was
+            installed.</p>
+          <p style="text-align: left;"><b>irc.version -> str</b>
+            : Current version string.</p>
+          <p style="text-align: left;"><b>irc.reconnect_delay -> int</b>
+            : The delay for the next reconnection attempt.</p>
+          <p style="text-align: left;"><b>irc.msg_len -> int</b>
+            : The maximum amount of characters a single IRC message can have. This already
+            includes the bot's nickname and hostmask, more details on this in the
+            "Text truncation" section.</p>
+          <p style="text-align: left;"><b>irc.curr_nickname -> str</b>
+            : The bot's currently used nickname.</p>
+          <p style="text-align: left;"><b>irc.bot_hostmask -> str</b>
+            : The bot's hostmask as given by the server.</p>
+          <p style="text-align: left;"><b>irc.alt_nickname -> boolean</b>
+            : Whether or not a different nickname than the one in the configuration
+            file is being used.</p>
+          <p style="text-align: left;"><b>irc.connected_ip</b>
+            : The IP address of the server the bot is connection to.</p>
+          <p style="text-align: left;"><b>irc.connected_host -> str</b>
+            : The hostmask of the server the bot is connected to.</p>
+          <p style="text-align: left;"><b>irc.ircv3_ver -> str</b>
+            : The IRCv3 version the bot requested during the CAP negotiation.</p>
+          <p style="text-align: left;"><b>irc.ircv3_cap_req -> tuple of strings</b>
+            : The IRCv3 capabilities the bot requested from the server.</p>
+          <p style="text-align: left;"><b>irc.ircv3_serv -> boolean</b>
+            : Whether or not the server supports IRCv3.</p>
+          <p style="text-align: left;"><b>irc.ircv3_cap_ls -> list</b>
+            : List of the IRCv3 capabilities the server supports.</p>
+          <p style="text-align: left;"><b>irc.ircv3_cap_ack -> list</b>
+            : List of the IRCv3 capabilities acknowledged with the server.</p>
+          <p style="text-align: left;"><b>irc.sasl_state -> int</b>
+            : The state of the SASL registration.  0: Not tried | 1: Success | 2: Fail |
+            3: In progress</p>
+          <p style="text-align: left;"><b>irc.conn_state -> int</b>
+            : The state of the connection with the IRC server. 0: Disconnected |
+            1: Registering | 2: Connected</p>
+          <p style="text-align: left;"><b>irc.namesdict -> dict</b>
+            : {channel1: [["=","m"], {nick1: ["@"], , ...}]} It contains the channels the
+            bot is connected to along with their modes and the joined users along with their
+            modes.</p>
+          <p style="text-align: left;"><b>irc.botmodes -> list</b>
+            : The modes given to the bot by the IRC server. Note that if you want to use
+            the bot's modes from a channel use "irc.namesdict".</p>
+
+          <br><b>Configuration Variables</b>
+          <p style="text-align: left;"><b>irc.owners -> list of strings</b>
+            : The list of the bot's owners.</p>
+          <p style="text-align: left;"><b>irc.host -> str</b>
+            : The hostname of the IRC server the bot is configured to connect to.</p>
+          <p style="text-align: left;"><b>irc.port -> int</b>
+            : The port of the IRC server the bot is configured to connect to.</p>
+          <p style="text-align: left;"><b>irc.ssl -> boolean</b>
+            : Whether or not SSL is used.</p>
+          <p style="text-align: left;"><b>irc.nickname -> str</b>
+            : The nickname the bot is configured to use.</p>
+          <p style="text-align: left;"><b>irc.username -> str</b>
+            : The username the bot is configured to use.</p>
+          <p style="text-align: left;"><b>irc.realname -> str</b>
+            : The realname the bot is configured to use.</p>
+          <p style="text-align: left;"><b>irc.authentication -> str</b>
+            : The authentication method set.</p>
+          <p style="text-align: left;"><b>irc.auth_password -> str</b>
+            : The authentication password set.</p>
+          <p style="text-align: left;"><b>irc.net_password -> str</b>
+            : The IRC server password set.</p>
+          <p style="text-align: left;"><b>irc.quitmsg -> str</b>
+            : The quit message that will be used.</p>
+          <p style="text-align: left;"><b>irc.channels -> dict</b>
+            : {"#channel": ""} The channels the bot is configured to use with their
+            passwords.</p>
+          <p style="text-align: left;"><b>irc.modules_obj</b>
+            : The whole "modules" block of the configuration file. Used to access module's
+            settings.</p>
+          <p style="text-align: left;"><b>irc.modules_load -> list</b>
+            : The modules the bot is set to load at startup.</p>
+          <p style="text-align: left;"><b>irc.mod_glb_prefix -> str</b>
+            : The global prefix set for all modules.</p>
+          <p style="text-align: left;"><b>irc.mod_chn_prefix -> dict</b>
+            : {"#channel": "cmd_prefix"} The prefix set for each channel.</p>
+          <p style="text-align: left;"><b>irc.user_blacklist -> tuple</b>
+            : A list of nicknames the bot will ignore messages from.</p>
+
+          <p>You can also access the configuration file directly using the configuration
+            tools provided by the bot. This will be discussed in the "Using the
+            configuration file" section.</p>
+
+          <br><h4 style="text-align: left;">Methods</h4>
+          <p style="text-align: left;"><b>irc.send(cmds, text=None)</b>
+            : The main sending method. This is used to construct commands not available
+            already by irc.py. All output to the IRC server is sent with this method.
+            <br><b>"cmds"</b> is a tuple of strings (single words) that contains all the
+            commands of the message.
+            <br><b>"text"</b> should be a string with the text needed for an IRC command.
+            Speaking in IRC terminology "cmds" is the COMMANDS part and
+            "text" the PARAMS part. The message is constructed as COMMANDS :PARAMS</p>
+          <p style="text-align: left;"><b>irc.privmsg(target, msg)</b>
+            : Send a PRIVMSG. This is used to post to channels and people.
+            <br><b>"target"</b> is the reciever and can be a channel or a nickname.
+            <br><b>"msg"</b> is the message to send.</p>
+          <p style="text-align: left;"><b>irc.notice(target, msg)</b>
+            : Send a NOTICE. This is used to send a notice to channels and people.
+            <br><b>"target"</b> is the reciever and can be a channel or a nickname.
+            <br><b>"msg"</b> is the message to send.</p>
+          <p style="text-align: left;"><b>irc.join(chanDict)</b>
+            : JOIN one or more IRC channels.
+            <br><b>"chanDict"</b> must be dictionary with each channel as a key and it's
+            password as a value: {"channel": ""}</p>
+          <p style="text-align: left;"><b>irc.part(channel, msg)</b>
+            : PART (leave) from a joined channel.
+            <br><b>"channel"</b> is the channel to part.
+            <br><b>"msg"</b> is the part message to send.</p>
+          <p style="text-align: left;"><b>irc.invite(nick, channel)</b>
+            : INVITE a user to join a channel.
+            <br><b>"nick"</b> is the nickname of the user.
+            <br><b>"channel"</b> is the channel you want to invite the user to.</p>
+          <p style="text-align: left;"><b>irc.kick(channel, nick, msg)</b>
+            : KICK a user from a channel. The bot must have Operator privilages.
+            <br><b>"channel"</b> is the channel you want to kick the user from.
+            <br><b>"nick"</b> is thenickname of the user you want to kick.
+            <br><b>"msg"</b> is the message you want to send with the kick.</p>
+          <p style="text-align: left;"><b>irc.nick(nick)</b>
+            Change the bot's nickname. This does not set the irc.curr_nickname variable.
+            You will have to set it yourself (preferably after making sure that the bot
+            actually got that nickname).
+            <br><b>"nick"</b> is the new nickname.</p>
+          <p style="text-align: left;"><b>irc.quit(self, msg='')</b>
+            : QUIT from the IRC server. This will result in the bot shutting down.
+            <br><b>"msg"</b> is the message you want to send with the quit command. If left
+            blank the bot will use the default quit message or the quit message set in the
+            configuration file.</p>
+          <p style="text-align: left;"><b>irc.away(self, msg='')</b>
+            : Set the bot as being AWAY.
+            <br><b>"msg"</b> is the message you want your users to see when they highlight
+          the bot.</p>
+        </li>
+
+
+        <li id="msg">
+          <h3>Messages and internal functions</h3>
+          <p>As you saw earlier the main() function takes two arguments. The second argument
+            "irc" was explained in the previous section. The first arguement "i" will be
+            explained here.</p>
+          <p>This argument gives you access to various variables about the current message
+            and lots of internal methods. More specifically:</p>
+          <p style="text-align: left;"><b>i.cmd -> str</b>
+            : This is the command that this module was called from. Using this you can
+            take different actions if your module is using many different commands. If the
+            module was called because of the "self.auto = True" option then i.cmd will be an
+            empty string.</p>
+          <p style="text-align: left;"><b>i.channel -> str</b>
+            : This is the channel from which the module was called. This is where you usually
+            want to reply to. If the module was called from a private message with a user,
+            this will be that user's nickname.</p>
+          <p style="text-align: left;"><b>i.nickname -> str</b>
+            : This is the nickname of the user that triggered the module call.</p>
+          <p style="text-align: left;"><b>i.username -> str</b>
+            : This is the username of the user that triggered the module call.</p>
+          <p style="text-align: left;"><b>i.hostname -> str</b>
+            : This is the hostname of the user that triggered the module call.</p>
+          <p style="text-align: left;"><b>i.msg_raw -> bytes</b>
+            : The full undecoded message as sent by the server.</p>
+          <p style="text-align: left;"><b>i.msg_full -> str</b>
+            : The full decoded message as sent by the server.</p>
+          <p style="text-align: left;"><b>i.msg -> str</b>
+            : The message the user sent to the channel or the bot. In IRC's terminology
+            this is called PARAMS</p>
+          <p style="text-align: left;"><b>i.msg_prefix -> str</b>
+            : Alias for "i.msg" that matched the IRC terminology</p>
+          <p style="text-align: left;"><b>i.msg_nocmd -> str</b>
+            : The message the user sent to the channel or the bot, but with the bot's
+            command removed.
+            <br>E.g. Alice: .seen Bob
+            <br>What i.msg_nocmd will be is: "Bob"</p>
+          <p style="text-align: left;"><b>i.msg_ls -> list</b>
+            : The full message decoded as a list.</p>
+          <p style="text-align: left;"><b>i.msg_prefix -> str</b>
+            : The prefix of the IRC message. This is the user's nickname with their hostmask.
+            E.g. drastik!drastik@hostmask</p>
+          <p style="text-align: left;"><b>i.cmd_ls -> list</b>
+            : This is a list of the COMMANDS part of the IRC message (PARAMS are removed).
+            Using "i.msg_ls" is usually preferable.</p>
+          <p style="text-align: left;"><b>i.cmd_prefix -> str</b>
+            : This is the prefix of the bot command the user gave. This depends on how the
+            bot has been configured. E.g. "."</p>
+          <p style="text-align: left;"><b>i.msgtype -> str</b>
+            : This is the message type that this module was called from. Using this you can
+            take different actions if your module is using many different message types.</p>
+          <p style="text-align: left;"><b>i.db -> [self.dbmem, self.dbdisk]</b>
+            : A list with the available SQLite databases.
+            <br><b>"dbmem"</b> is the database stored in memory and it's data is lost when
+            when the bot shuts down.
+            <br><b>"dbdisk"</b> is the databased store in the disk (the database itself is
+            called "drastikbot.db" and is saved in the bot's configuration directory) and
+            it's non-volatile.
+            <br>More details about the usage of the databases can be found in
+            the "Databases" section.</p>
+          <p style="text-align: left;"><b>i.varset(name, value)</b>
+            : Method used to set a variable that is kept in the bot's memory.
+            <br><b>"name"</b> is the name of the variable.
+            <br><b>"value"</b> is the variable's value.
+            <br>A thorough explanation will be given in the "Persistent Variables" section.
+          </p>
+          <p style="text-align: left;"><b>i.varget(name, defval=False, raw=False)</b>
+            : Method used to get a variable from the bot's memory.
+            <br><b>"name"</b> is the name of the variable.
+            <br><b>"defval"</b> is the default to <b>set</b> if no variable is already
+            set.
+            <br><b>"raw"</b> if True the method will not append the module's name in frond
+            of "name".
+            This is to access variables from other modules.
+            <br>If both 'defval' and 'raw' are non False but the variable cannon be
+            found an AttributeError is raised.
+            <br>A thorough explanation will be given in the "Persistent Variables" section.
+          </p>
+          <p style="text-align: left;"><b>i.modules -> dict</b>
+            : This gives access to a dictionary that contains the loaded modules' names as
+            keys and their callables as values. {"Module Name" : Module Callable}</p>
+          <p style="text-align: left;"><b>i.command_dict -> dict</b>
+            : This dictionary has every commands as a key and it's matching module's name
+            as a value. {"command1": "module"}</p>
+          <p style="text-align: left;"><b>i.auto_list -> list</b>
+            : List of all the modules that are automatically called on every message
+            (a.k.a. modules with the "self.auto = True" option). ["module1", ...]</p>
+          <p style="text-align: left;"><b>i.blacklist(module, channel)</b>
+            : Read the configuration file and get the blacklist for the given module.
+            Then return False if the module is not blacklisted in the given channel
+            or True if it is blacklisted.
+            <br><b>"module"</b> The module that will be checked if it's blacklisted.
+            <br><b>"channel"</b> The channel that will be checked for having the given
+            module blacklisted.</p>
+          <p style="text-align: left;"><b>i.whitelist(module, channel)</b>
+            : Read the configuration file and get the whitelist for the given module.
+            Then return True if the module is not whitelisted in the given channel
+            and the whitelist exists or False if it is whitelisted or the whitelist
+            does not exist.
+            <br><b>"module"</b> The module that will be checked if it's whitelisted.
+            <br><b>"channel"</b> The channel that will be checked for having the given
+            whitelisted module.</p>
+          <p style="text-align: left;"><b>i.mod_import()</b>
+            : Method used to import modules specified in the configuration file.
+            Checks for values specified in the Module() class of every module and
+            sets the variables declared in __init__() for later use.</p>
+        </li>
+
+        
+        <li id="vars">
+          <h3>Persistent Variables</h3>
+          <p>Modules in drastikbot are stateless. This means that after a module finishes
+            it's execution cycle all the objects it created will be lost. Further calls of
+            this module will not be able to access any previously created variables.</p>
+          <p>To circumvent this restriction drastikbot provides you with the "i.varset()" and
+            "i.varget()" methods. These methods are part of the VariableMemory() class which
+            is part of drastikbot's runtime and as such it will not be lost until the bot
+            gets shut down.</p>
+          <br><h4 style="text-align: left;">i.varset(name, value)</h4>
+          <p>As described earlier, this method is used to set a variable that is kept in
+            the bot's memory. It take the following two arguments:</p>
+          <p style="text-align: left;">
+            <b>"name"</b> is the name of the variable.
+            <br><b>"value"</b> is the variable's value.</p>
+          <p>The methods works by getting the "name" of the variable and adding the
+            module's name infrond of it, so the actual variable name is:
+            [calling module's name]_["name"]. This way we can avoid conflicting variable
+            names between modules.</p>
+          <br><br><h4 style="text-align: left;">i.varget(name, defval=False, raw=False)</h4>
+          <p>With i.varget() we can retrieve the value of a variable previously set (or set a
+            default variable). The arguements it can take are three but only "name" is
+            mandatory.</p>
+          <p style="text-align: left;">
+            <br><b>"name"</b> is the name of the variable.
+            <br><b>"defval"</b> is the default to <b>set</b> if no variable is already
+            set.
+            <br><b>"raw"</b> if True the method will not append the module's name in frond
+            of "name".</p>
+          <p>If "defval" is given then the method will set and return the value given if no
+            other value is found.</p>
+          <p>"raw" is a more interesting argument. If you set it to True then the name you
+            pass will not be translated to the [calling module's name]_["name"] format we
+            saw above. This allows you to access the variables of other modules.</p>
+          <p>If you set both "defval" and "raw", but getting the remote variable fails, then
+            there will be an AttributeError raised, because writing to other modules'
+            variables is not allowed.</p>
+        </li>
+
+
+        <li id="db">
+          <h3>Databases</h3>
+          <p>Drastikbot provides two SQLite3 databases for the modules to write and read
+            data from. One database is saved on the disk, while the other stays in memory
+            and isn't preserved after a shut down.</p>
+          <p>Modules creating new tables should use their name as a prefix to the table's
+            name so that conflics will be avoided. Example: module1_table</p>
+          <p style="text-align: left;">
+            <br><b>"i.db[0]"</b> gives you access to the memory database function
+            (saved in RAM).
+            <br><b>"i.db[1]"</b> gives access to the database saved in the disk as
+            "drastikbot.db" (in the root of the config directory).</p>
+          <p>You can read python's guide on SQLite3 if you aren't familiar with it here:
+            <a href="https://docs.python.org/3/library/sqlite3.html">
+              https://docs.python.org/3/library/sqlite3.html</a>.</p>
+          <p>If you want to see examples of drastikbot modules using the SQLite3 database
+            check out the <a href="https://github.com/olagood/drastikbot_modules">
+              drastikbot_modules repository</a>.</p>
+        </li>
+
+
+        <li id="nickserv_auth">
+          <h3>Authenticating Users with NickServ</h3>
+          <p>Drastikbot provides a function to verify a user's authentication status with NickServ.
+            This can be useful when you want to verify a user's identity. These functions only work
+            in servers where NickServ supports the ACC and STATUS commands.</p>
+          <p style="text-align: left;">To use that function first import the user_auth module:</p>
+          <div class="code"><pre><code>
+ from user_auth import user_auth
+          </code></pre></div>
+          <p style="text-align: left;">Then to check a user's authentication status call the
+            <b>user_auth(i, irc, irc_nick, timeout=10)</b> function.
+            <br><b>"i"</b> is the first argument you get from the main() function.
+            <br><b>"irc"</b> is the second arguement you get from the main() function.
+            <br><b>"irc_nick"</b> is the nickname of the user you want to authenticate.
+            <br><b>"timeout=10"</b> is the amount of time the function should wait for a response
+            from NickServ.<p>
+          <p style="text-align: left;">The function will return:
+          <br><b>True</b> if the user's authentication status is 3. In other words
+          True is returned if a user is sucessfully identified with NickServ.
+          <br><b>False</b> if the user is not authenticated or the timeout was reached.</p>
+          <p>Example:</p>
+          <div class="code"><pre><code>
+if not user_auth(i, irc, irc_nick):
+    return f'{irc_nick}: You are not logged in with NickServ.'
+          </code></pre></div>
+        </li>
+
+        
+        <li id="p_truncate">
+          <h3>Text truncation</h3>
+          <p>IRC messages are limited to 512 bytes. This includes not only the text you want to send
+            but also your nickname and your IRC commands.<p>
+          <p>Drastikbot does not limit the amount of text a module can output and will send
+            additional messages until all output from a module is sent to the IRC server. This is
+            not always preferable and you may want to limit the output of your module. For this
+            purpose drastikbot provides you with a mechanism and a variable that will help you
+            properly manage the output of your module.</p>
+          <p style="text-align: left;">First of all, let's have a look at the "irc.msg_len"
+            variable. It contains the amount of bytes the output of the module should be to avoid
+            sending additional messages. The value will always be less than 512 characters as the
+            length of the bot's nickname and hostname are substracted.</p>
+          <p>Next we have the p_truncate() function that is included in the dbot_tools module.</p>
+          <div class="code"><pre><code>
+from dbot_tools import p_truncate
+
+p_truncate(text, whole, percent, ellipsis=False)                
+          </code></pre></div>
+          <p style="text-align: left;">
+            <br><b>"text"</b> is the text that will be truncated. It must be a string.
+            <br><b>"whole"</b> is the maximum amount of characters the message can have. This can
+            be "irc.msg_len", but you usually have to substract from "irc.msg_len" the commands
+            (substract 9 chars if you are sending a "PRIVMSG :") and any special formatting you do.
+            Remember that this is bytes so if you are using unicode make sure to encode it first.
+            <br><b>"percent"</b>This is an integer. It's the percent of the whole you want to
+            allocate for the truncation. This is useful if you have multiple sources of text you
+            want to truncate.
+            <br><b>"ellipsis=False"</b> If it's True then the function will add "..." at the end of
+            the text, but only if it's truncated.</p>
+          <p>Using p_truncate() is preferable for text truncating as it will take care to not break
+            unicode strings during truncation.</p>
+        </li>
+
+        
+        <li id="config">
+          <h3>Using the Configuration File</h3>
+          <p>Drastikbot's settings are loaded from it's configuration file "config.json", which is
+            located at the root of the configuration directory. It is a JSON document that can be
+            read and editted however you want. All the modules that need to have settings saved
+            could make use of this config file, but obviously anything can be used.</p>
+          <h4 style="text-align: left;">Using the configuration file</h4>
+          <p>Modules using config.json should save their settings under the
+            <b>irc: {modules: { settings: { module_name: {}}}}</b> dictionary. Make sure to avoid
+            making keys named "blacklist" and "whitelist" as they are used internally by the bot.</p>
+          <pre class="code"><code>
+ { "irc": {
+       "modules": {
+           "settings": {
+               "module_name": {
+                   "setting1": "value1"
+                   }
+               }
+           }
+       }
+  }
+          </pre></code>
+          <br><h4 style="text-align: left;">Using the Config() class</h4>
+          <p>Drastikbot provides dbot_tools.Config(), a small class containing a read and a write
+            method that can be used to interact with the configuration file. Alternatively one
+            could just import python's json module and make their own functions.</p>
+          <p>To use these methods in your module, you first import the Config() class:</p>
+          <pre class="code"><code>
+from dbot_tools import Config              
+          </code></pre>
+          <p>Next you need to call the class and pass it to a variable so that we can call it
+            later. The Config() class takes the configuration directory as an argument. You can get
+            the configuration directory from the irc.py library, which can be accessed with the
+          second argument of the main() function.</p> 
+          <pre class="code"><code>
+config = Config(irc.cd)
+          </code></pre>
+          <p>To read a value you call the read method</p>
+          <pre class="code"><code>
+owner = config.read()['irc']['owner']
+          </code></pre>
+          <p>To write to the configuration file, you need to load it in a variable using read(), edit that variable as needed and then save it back with write()</p>
+          <pre class="code"><code class="python">
+config = Config(irc.cd)
+config_file = config.read()
+config_file['irc']['owner'] = "not_drastik"
+config.write(config_file)
+          </code></pre>
+        </li>
+
+        
+        <li id="about">
+          <h3>About modules</h3>
+          <p>Drastikbot automatically reloads modules every time they are called. This allows you
+            to edit the modules, add new features to them and fix bugs without restarting the bot or
+            manually reloading it's modules. However, keep in mind that the Module() class isn't
+            being automatically reloaded (for now at least).</p>
+          <p>Drastikbot is multi-threaded. Each module call runs the modules in a new thread
+            allowing for multiple modules to run concurently and perform long background tasks
+            without blocking the bot. This is also the reason why variables are not persistent
+            and the modules are stateless.</p>
+          <p>The drastikbot_modules repository and package can serve as a kitchen sink for the
+            bot's module functionality. Refer to it for examples on how to write modules for
+            drastikbot.</p>
+          <p>For questions and help with module development contact <b>drastik</b> at
+            <b>Freenode</b> or <b>Rizon</b>.</p>
+        </li>
+      </ul>
+    </div>
+  </body>
+</html> 

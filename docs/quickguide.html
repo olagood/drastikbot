@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name=viewport content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Drastikbot :: Quick Guide</title>
+    <link type="text/css" rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/solarized-dark.min.css">
+    <script src="https:////cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js">
+    </script>
+    <script>hljs.initHighlightingOnLoad();</script>
+  </head>
+  <body>
+    <div style="background: url(res/logo.svg) center no-repeat #f5f5dc; padding:0; width:100%;
+                height:50px;"></div>
+    <div id="menu">
+      <ul>
+        <li> [ </li>
+	    <li><a href="index.html">drastikbot</a></li>
+        <li> ] </li>
+        <li> [ </li>
+	    <li><a href="quickguide.html">Quick Guide</a></li>
+        <li> ] </li>
+        <li> [ </li>
+	    <li><a href="modules.html">Module Documentation</a></li>
+        <li> ] </li>
+        <li> [ </li>
+	    <li><a href="https://github.com/olagood/drastikbot">GitHub</a></li>
+	    <li> ] </li>
+	    <li><a href="http://drastik.org">drastik.org</a></li>
+      </ul>
+    </div>
+    <div id="newsbox">
+      <ul>
+	<li>
+	  <h2>Installation</h2>
+        </li>
+      </ul>
+      <ul>
+        <li>
+          <a href="#requirements">Requirements</a> |
+          <a href="#download">Download</a> |
+          <a href="#configuration">Configuration</a> |
+          <a href="#install_modules"> Installing Modules</a> |
+          <a href="#run">Running</a> |
+          <a href="#update">Updating</a></li>
+      </ul>
+    </div>
+    <div id="newsbox">
+      <ul>
+
+        
+        <li id="requirements">
+          <h3>Requirements</h3>
+          <ul style="text-align: left; display: inline-block; vertical-align: top;">
+            <li><b>To install drastikbot you need:</b></li>
+            <li class="fe_ls">Python 3.6 (or later)</li>
+            <li class="fe_ls">Linux or a unix-like OS. (Windows support is untested.)</li>
+          </ul>
+          <ul style="text-align: left; display: inline-block; vertical-align: top;">
+            <li><b>If you use the default modules you will also need:</b></li>
+            <li class="fe_ls">
+              <a href="http://docs.python-requests.org/en/master/">Requests</a>
+              : pip3 install requests</li>
+            <li class="fe_ls">
+              <a href="https://www.crummy.com/software/BeautifulSoup/bs4/doc/">Beautifulsoup4</a>
+              : pip3 install beautifulsoup4</li>
+            <li><b>grid.py only:</b></li>
+            <li class="fe_ls">
+              <a href="https://bitbucket.org/ecollins/passlib/wiki/Home">PassLib</a>
+              : pip3 install passlib</li>
+            <li class="fe_ls">
+              <a href="https://argon2-cffi.readthedocs.io/en/stable/">argon2_cffi</a>
+              : pip3 install argon2_cffi</li>
+          </ul>
+          <p>Each module's dependencies are listed at the top of it's source code file.</p>
+        </li>
+
+        
+        <li id="download">
+          <h3>Download</h3>
+          <p>You can download drastikbot at the following link:
+            <a href="https://github.com/olagood/drastikbot/archive/master.zip">
+              https://github.com/olagood/drastikbot/archive/master.zip</a>
+          </p>
+          <p>You may also clone the repository with:</p>
+          <div class="code"><pre><code>
+ $ git clone https://github.com/olagood/drastikbot.git
+          </code></pre></div>
+        </li>
+
+
+        <li id="configuration">
+          <h3>Configuration</h3>
+          <p>Before you run the bot, you have to setup it's configuration directory and edit
+            it's configuration file.</p><br>
+          <p>By default the bot will use ~/.drastikbot as it's configuration directory, but
+            this can be changed using the: "-c [directory]" option.</p>
+          <p>Create the configuration directory and copy the default configuration file
+            - named config.json - from the "examples" directory of the bot's repository
+            you downloaded earlier.</p><br>
+          <p>Next open the configuration file with your favorite text editor and edit it
+            as explained below.</p>
+          <p>Make sure to not miss anything or make any syntactical mistakes as the bot will
+            exit with an error message. (read: violently fail)</p>
+          <div class="code"><p style="font-size:14px; padding: 5px 0 5px 5px;">
+              <span style="color:#FF4040">"connection": {}</span><br>
+              <span style="color:#C0FF80;">
+                This should be the hostname or IP of the IRC network you want to connect to.
+              </span><br>
+              "network": "chat.freenode.net"<br><br>
+              <span style="color:#C0FF80;">The server port to use.</span><br>
+              "port": 6697<br><br>
+              <span style="color:#C0FF80;">
+                The username of the bot, used for SASL authentication.</span><br>
+              "username": "drastikbot"<br><br>
+               <span style="color:#C0FF80;">The bot's realname</span><br>
+               "realname": "drastikbot2.0"<br><br>
+               <span style="color:#C0FF80;">
+                 The bot's nickname. This is what the bot is presented to other users as.
+               </span><br>
+               "nickname": "drastikbot"<br><br>
+               <span style="color:#C0FF80;">
+                 How to authenticate the bot. Can be either "sasl" or "nickserv". Use "" if
+                 no authentication is needed.</span><br>               
+               "authentication": "sasl"<br><br>
+               <span style="color:#C0FF80;">
+                 The password to use for authentication.</span><br>               
+               "auth_password": ""<br><br>
+               <span style="color:#C0FF80;">
+                 Whether to use SSL for connecting or not. Can either be: true or false.
+               </span><br>               
+               "SSL": true<br><br>
+               <span style="color:#C0FF80;">
+                 The password to use if the server is password protected.</span><br>
+               "net_password": ""<br><br><br>
+               <span style="color:#FF4040">"modules": {}</span><br>
+               <span style="color:#C0FF80;">
+                 List the filenames (without the .py extension) of all the modules you want
+                 the bot to load at startup.</span><br>               
+               "load": ["search", "url"]<br><br>
+               <span style="color:#C0FF80;">
+                 The default command prefix used by the bot. It can be anything, but usually
+                 a single character should be used.</span><br>               
+               "global_prefix": "."<br><br>
+               <span style="color:#C0FF80;">
+                 The settings block can be used by modules for configuration options,
+                 however the bot already provides two internal options that can be used:
+                 blacklist or whitelist. Only one of them can be used at a time. They allow
+                 for specifying specific channels that a module should run at.
+               </span><br>               
+               "settings": {"module_name": {"blacklist": ["channel1", "channel2"]}}}<br><br><br>
+               <span style="color:#FF4040">"channels": {}</span><br>
+               <span style="color:#C0FF80;">
+                 Set the channels (and their passwords) the bot should join. If there is no
+                 password set it as "".</span><br>               
+               "join": {"#channel": "password"}<br><br>
+               <span style="color:#C0FF80;">
+                 Again the settings block is use for per channel configuration options. The
+                 "prefix" option allows you to bypass the "global_prefix" you set earlier and use
+                 a different prefix for a channel.
+               </span><br>               
+               "settings": {"#channel": {"prefix": "."}}<br><br><br>
+               <span style="color:#C0FF80;">
+                 The nicknames of the bot's owners. Used by modules like grid.py to allow these
+                 users to perform bot related configuration over IRC.</span><br>               
+               "owners": ["drastik"]<br><br><br>
+               <span style="color:#C0FF80;">
+                 A list of nicknames to ignore messages from. Used to avoid conflict with other IRC bots.</span><br>               
+               "user_blacklist": [ ]<br><br><br>
+               <span style="color:#FF4040">"sys": {}</span><br>
+               <span style="color:#C0FF80;">
+                 Set the log level the bot should do. Available levels are: "debug", "info"
+               </span><br>               
+               "log_level": "debug"<br>
+          </p></div>
+          <p>Most of these settings can be set while the bot is running, using an administration
+            module such as grid.py</p>
+          <!--
+          <p>After you extract the bot (in case you downloaded the zip file) or clone the repository, go to the src directory and run the bot:</p>
+          <div class="code"><pre><code>
+ $ python3 drastikbot.py
+          </code></pre></div>
+          <p>You may not run the bot before finishing this guide, as doing so will only result in the bot exiting due to the lack of a configuration file.</p>
+          -->
+        </li>
+
+
+        <li id="install_modules">
+          <h3>Installing Modules</h3>
+          <p>Drastikbot on it's own provides no functionality. To do anything useful with it you need to install and enable modules.</p>
+          <h4>Installing Modules<hr></h4>
+          <p>NOTE: As described in the "Requirements" section some modules require additional
+            dependencies to work. Drastikbot will show an error message (and continue operating,
+            since modules are dynamic) if a module fails to load because of unmet dependencies or
+            other problems. You can find instructions on how to install those dependencies in
+            the module's source file.</p>
+          <p>Modules are loaded from the "modules" directory under the bot's configuration directory you set up earlier.</p>
+          <p>Create the directory:</p>
+          <div class="code"><pre><code>
+ $ mkdir ~/.drastikbot/modules
+          </code></pre></div>
+          <p>Download and add any modules you want to use in that directory. Next, edit
+            the configuration file (config.json) to set which modules should be loaded.
+            (See: <a href="#configuration">Configuration</a>)
+        </li>
+
+
+        <li id="run">
+          <h3>Running drastikbot</h3>
+          <p>At this point you should be ready to run and use drastikbot. Before you start the
+            bot, however, please read the notes in this section.</p> 
+          <p>Drastikbot provides no daemonizing mechanism (a.k.a. it does not run in the
+            background). This means that you should use a terminal multiplexer like
+            <a href="https://github.com/tmux/tmux/wiki">tmux</a> or
+            <a href="https://gnu.org/software/screen">screen</a> and then detach from it's
+            session or use the <a href="https://wikipedia.org/wiki/Nohup">nohup</a> program to
+            run it in the background and survive logouts.</p>
+
+          <h4 style="text-align:left;">Run using nohup</h4>
+          <p>To run drastikbot using nohup execute the following command:</p>
+          <div class="code"><pre><code>
+ $ nohup drastikbot &
+          </code></pre></div>
+
+          <h4 style="text-align: left;">Run using tmux</h4>
+          <p>To run drastikbot using tmux execute the following commands after installing tmux
+            in your computer:</p>
+          <div class="code"><pre><code>
+ $ tmux new -s drastikbot_freenode  #drastikbot_freenode can be any name you want
+
+     # Run the bot.
+     # Then press "Ctrl-b d" to detach
+
+ $ tmux a  #running this will reattach to the session you previously started
+
+     # If you have multiple sessions pressing "Ctrl-b s" will bring up a list with
+     # all the available sessions
+          </code></pre></div>
+
+          <h4 style="text-align:left;">Run using screen</h4>
+          <p>To run drastikbot using screen execute the following commands after installing
+            screen in your computer:</p>
+          <div class="code"><pre><code>
+ $ screen -S drastikbot_freenode  #drastikbot_freenode can be any name you want
+ 
+     # Run the bot.
+     # Then press "Ctrl-A D" to detach
+
+ $ screen -x -r drastikbot_freenode  #running this will reattach to the
+                                     #session you previously started
+
+ $ screen -xr  #reattach using this if you only have a single session running
+          </code></pre></div>
+
+          <hr>
+          <h3>Running multiple instances of drastikbot</h3>
+          <p>For easier development and management drastikbot connects to a single IRC network. If you want to use drastikbot in more than one networks you will have to create two seperate configuration directories (preferably under ~/.drastikbot) with different configuation files and use the <b>-c</b> option to tell drastikbot to use a non-default configuration directory.</p>
+          <div class="code"><pre><code>
+ $ drastikbot -c ~/.drastikbot/freenode
+          </code></pre></div>
+        </li>
+      </ul>
+    </div>
+  </body>
+</html> 
