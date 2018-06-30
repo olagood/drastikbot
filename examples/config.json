@@ -1,0 +1,28 @@
+{
+    "irc": {
+        "connection": {
+            "network": "chat.freenode.net",
+            "username": "drastikbot",
+            "port": 6697,
+            "auth_password": "",
+            "realname": "drastikbot2.0",
+            "ssl": true,
+            "nickname": "drastikbot",
+            "authentication": "sasl",
+            "net_password": ""
+        },
+        "modules": {
+            "load": [ ],
+            "global_prefix": ".",
+            "settings": { }
+        },
+        "channels": {
+            "join": {"#channel": "" }
+        },
+        "owners": ["drastik"],
+        "user_blacklist": [ ]
+    },
+    "sys": {
+        "log_level": "debug"
+    }
+}
