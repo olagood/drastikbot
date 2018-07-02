@@ -160,90 +160,93 @@
             is called.</p>
 
           <br><b>Runtime Variables</b>
-          <p style="text-align: left;"><b>irc.cd</b>
+          <p style="text-align: left;"><b>irc.var.cd</b>
             : This varible contains the bot's configuration directory.</p>
-          <p style="text-align: left;"><b>irc.proj_path</b>
+          <p style="text-align: left;"><b>irc.var.proj_path</b>
             : This is the root of the project. In other words this is where the bot was
             installed.</p>
-          <p style="text-align: left;"><b>irc.version -> str</b>
+          <p style="text-align: left;"><b>irc.var.version -> str</b>
             : Current version string.</p>
-          <p style="text-align: left;"><b>irc.reconnect_delay -> int</b>
+          <p style="text-align: left;"><b>irc.var.reconnect_delay -> int</b>
             : The delay for the next reconnection attempt.</p>
-          <p style="text-align: left;"><b>irc.msg_len -> int</b>
+          <p style="text-align: left;"><b>irc.var.msg_len -> int</b>
             : The maximum amount of characters a single IRC message can have. This already
             includes the bot's nickname and hostmask, more details on this in the
             "Text truncation" section.</p>
-          <p style="text-align: left;"><b>irc.curr_nickname -> str</b>
+          <p style="text-align: left;"><b>irc.var.curr_nickname -> str</b>
             : The bot's currently used nickname.</p>
-          <p style="text-align: left;"><b>irc.bot_hostmask -> str</b>
+          <p style="text-align: left;"><b>irc.var.bot_hostmask -> str</b>
             : The bot's hostmask as given by the server.</p>
-          <p style="text-align: left;"><b>irc.alt_nickname -> boolean</b>
+          <p style="text-align: left;"><b>irc.var.alt_nickname -> boolean</b>
             : Whether or not a different nickname than the one in the configuration
             file is being used.</p>
-          <p style="text-align: left;"><b>irc.connected_ip</b>
+          <p style="text-align: left;"><b>irc.var.connected_ip</b>
             : The IP address of the server the bot is connection to.</p>
-          <p style="text-align: left;"><b>irc.connected_host -> str</b>
+          <p style="text-align: left;"><b>irc.var.connected_host -> str</b>
             : The hostmask of the server the bot is connected to.</p>
-          <p style="text-align: left;"><b>irc.ircv3_ver -> str</b>
+          <p style="text-align: left;"><b>irc.var.ircv3_ver -> str</b>
             : The IRCv3 version the bot requested during the CAP negotiation.</p>
-          <p style="text-align: left;"><b>irc.ircv3_cap_req -> tuple of strings</b>
+          <p style="text-align: left;"><b>irc.var.ircv3_cap_req -> tuple of strings</b>
             : The IRCv3 capabilities the bot requested from the server.</p>
-          <p style="text-align: left;"><b>irc.ircv3_serv -> boolean</b>
+          <p style="text-align: left;"><b>irc.var.ircv3_serv -> boolean</b>
             : Whether or not the server supports IRCv3.</p>
-          <p style="text-align: left;"><b>irc.ircv3_cap_ls -> list</b>
+          <p style="text-align: left;"><b>irc.var.ircv3_cap_ls -> list</b>
             : List of the IRCv3 capabilities the server supports.</p>
-          <p style="text-align: left;"><b>irc.ircv3_cap_ack -> list</b>
+          <p style="text-align: left;"><b>irc.var.ircv3_cap_ack -> list</b>
             : List of the IRCv3 capabilities acknowledged with the server.</p>
-          <p style="text-align: left;"><b>irc.sasl_state -> int</b>
+          <p style="text-align: left;"><b>irc.var.sasl_state -> int</b>
             : The state of the SASL registration.  0: Not tried | 1: Success | 2: Fail |
             3: In progress</p>
-          <p style="text-align: left;"><b>irc.conn_state -> int</b>
+          <p style="text-align: left;"><b>irc.var.conn_state -> int</b>
             : The state of the connection with the IRC server. 0: Disconnected |
             1: Registering | 2: Connected</p>
-          <p style="text-align: left;"><b>irc.namesdict -> dict</b>
+          <p style="text-align: left;"><b>irc.var.namesdict -> dict</b>
             : {channel1: [["=","m"], {nick1: ["@"], , ...}]} It contains the channels the
             bot is connected to along with their modes and the joined users along with their
             modes.</p>
-          <p style="text-align: left;"><b>irc.botmodes -> list</b>
+          <p style="text-align: left;"><b>irc.var.botmodes -> list</b>
             : The modes given to the bot by the IRC server. Note that if you want to use
             the bot's modes from a channel use "irc.namesdict".</p>
 
           <br><b>Configuration Variables</b>
-          <p style="text-align: left;"><b>irc.owners -> list of strings</b>
+          <p style="text-align: left;"><b>irc.var.owners -> list of strings</b>
             : The list of the bot's owners.</p>
-          <p style="text-align: left;"><b>irc.host -> str</b>
+          <p style="text-align: left;"><b>irc.var.host -> str</b>
             : The hostname of the IRC server the bot is configured to connect to.</p>
-          <p style="text-align: left;"><b>irc.port -> int</b>
+          <p style="text-align: left;"><b>irc.var.port -> int</b>
             : The port of the IRC server the bot is configured to connect to.</p>
-          <p style="text-align: left;"><b>irc.ssl -> boolean</b>
+          <p style="text-align: left;"><b>irc.var.ssl -> boolean</b>
             : Whether or not SSL is used.</p>
-          <p style="text-align: left;"><b>irc.nickname -> str</b>
+          <p style="text-align: left;"><b>irc.var.nickname -> str</b>
             : The nickname the bot is configured to use.</p>
-          <p style="text-align: left;"><b>irc.username -> str</b>
+          <p style="text-align: left;"><b>irc.var.username -> str</b>
             : The username the bot is configured to use.</p>
-          <p style="text-align: left;"><b>irc.realname -> str</b>
+          <p style="text-align: left;"><b>irc.var.realname -> str</b>
             : The realname the bot is configured to use.</p>
-          <p style="text-align: left;"><b>irc.authentication -> str</b>
+          <p style="text-align: left;"><b>irc.var.authentication -> str</b>
             : The authentication method set.</p>
-          <p style="text-align: left;"><b>irc.auth_password -> str</b>
+          <p style="text-align: left;"><b>irc.var.auth_password -> str</b>
             : The authentication password set.</p>
-          <p style="text-align: left;"><b>irc.net_password -> str</b>
+          <p style="text-align: left;"><b>irc.var.net_password -> str</b>
             : The IRC server password set.</p>
-          <p style="text-align: left;"><b>irc.quitmsg -> str</b>
+          <p style="text-align: left;"><b>irc.var.quitmsg -> str</b>
             : The quit message that will be used.</p>
-          <p style="text-align: left;"><b>irc.channels -> dict</b>
+          <p style="text-align: left;"><b>irc.var.msg_delay -> int or float</b>
+            : The delay between multipart messages. Multipart messages are messages that
+            don't fit in a single IRC message.</p>
+          <p style="text-align: left;"><b>irc.var.channels -> dict</b>
             : {"#channel": ""} The channels the bot is configured to use with their
             passwords.</p>
-          <p style="text-align: left;"><b>irc.modules_obj</b>
+          <p style="text-align: left;"><b>irc.var.modules_obj</b>
             : The whole "modules" block of the configuration file. Used to access module's
             settings.</p>
-          <p style="text-align: left;"><b>irc.modules_load -> list</b>
+          <p style="text-align: left;"><b>irc.var.modules_load -> list</b>
             : The modules the bot is set to load at startup.</p>
-          <p style="text-align: left;"><b>irc.mod_glb_prefix -> str</b>
+          <p style="text-align: left;"><b>irc.var.mod_glb_prefix -> str</b>
             : The global prefix set for all modules.</p>
-          <p style="text-align: left;"><b>irc.mod_chn_prefix -> dict</b>
+          <p style="text-align: left;"><b>irc.var.mod_chn_prefix -> dict</b>
             : {"#channel": "cmd_prefix"} The prefix set for each channel.</p>
-          <p style="text-align: left;"><b>irc.user_blacklist -> tuple</b>
+          <p style="text-align: left;"><b>irc.var.user_blacklist -> tuple</b>
             : A list of nicknames the bot will ignore messages from.</p>
 
           <p>You can also access the configuration file directly using the configuration
