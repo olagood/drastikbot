@@ -75,6 +75,7 @@ class Settings:
         self.auth_password = c_conn['auth_password']
         self.net_password = c_conn.get('net_password', '')
         self.quitmsg = c_conn.get('quitmsg', f'drastikbot {self.version}')
+        self.msg_delay = c_conn.get('msg_delay', 1)
         self.channels = c['irc']['channels']['join']
         self.modules_obj = c['irc']['modules']
         self.modules_load = self.modules_obj['load']
@@ -143,6 +144,7 @@ class Drastikbot():
         # amount of messages, since zero will never be met in the if
         # statement below.
         if multipart:
+            time.sleep(self.var.msg_delay)
             tr = m_len - 2 - len(' '.join(cmds).encode('utf-8')) - remainder
             t = text.encode('utf-8')[tr:]
             self.send(cmds, t)
