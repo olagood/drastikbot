@@ -164,6 +164,13 @@ class Modules:
         module_dir = self.irc.var.proj_path + '/irc/modules'
         modimp_list.extend(self.mod_imp_prep(module_dir, auto=True))
 
+        # Empty variabled from previous import:
+        self.modules = {}  # {Module Name : Module Callable}
+        self.msgtype_dict = {}  # {msgtype: [module1, ...]}
+        self.auto_list = []  # [module1, ...]
+        self.startup_list = []  # [module1, ...]
+        self.command_dict = {}  # {command1: module}
+
         for m in modimp_list:
             try:
                 modimp = importlib.import_module(m)
