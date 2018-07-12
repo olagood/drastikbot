@@ -205,8 +205,9 @@ class Main:
         self.irc.var.proj_path = proj_path
         if mod:
             self.mod = mod
+            mod.irc = self.irc  # Update the irc variable
         else:
-            self.mod = Modules(conf_dir, self.irc)
+            self.mod = Modules(self.irc)
         self.reg = Register(self.irc)
         self.log = Logger(conf_dir, 'runtime.log')
         self.irc.var.log = self.log
@@ -222,7 +223,7 @@ class Main:
         self.log.info('> Reconnecting...')
         # Reload the class
         self.__init__(self.irc.cd, self.irc.var.proj_path, mod=self.mod)
-        self.main(rel=True)  # Restart the bot
+        self.main(reconnect=True)  # Restart the bot
 
     def recieve(self):
         while self.irc.var.conn_state != 0:
@@ -275,9 +276,9 @@ class Main:
             self.log.info("\n Force Quit.")
             os._exit(1)
 
-    def main(self, rel=False):
+    def main(self, reconnect=False):
         self.irc.connect()
-        if not rel:
+        if not reconnect:
             self.mod.mod_import()
         if self.irc.var.sigint:
             return
@@ -285,5 +286,5 @@ class Main:
         self.thread_make(self.recieve)
         reg_t = self.thread_make(self.reg.reg_init)
         reg_t.join()  # wait until registered
-        if not rel:
+        if not reconnect:
             self.thread_make(self.mod.mod_startup, (self.irc,))
