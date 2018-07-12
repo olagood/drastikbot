@@ -100,9 +100,9 @@ class Info:
 
 
 class Modules:
-    def __init__(self, conf_dir, irc):
-        self.cd = conf_dir
+    def __init__(self, irc):
         self.irc = irc
+        self.cd = self.irc.var.cd
         self.log = Logger(self.cd, 'modules.log')
         self.varmem = VariableMemory()
 
