@@ -94,7 +94,7 @@ class Logger:
         try:
             log_dir = config['sys']['log_dir']
         except KeyError:
-            log_dir = conf_dir + '/logs'
+            log_dir = conf_dir + '/logs/'
             self.log_dir = log_dir
         if not Path(log_dir).exists():
             Path(log_dir).mkdir(parents=True, exist_ok=True)
@@ -116,7 +116,6 @@ class Logger:
                 np = (self.log_dir + self.log_file.stem +
                       str(n) + "".join(self.log_file.suffixes))
                 rotate_p = Path(np)
-                print('Changing Log file to:' + np)
                 if rotate_p.exists():
                     n += 1
                 else:
