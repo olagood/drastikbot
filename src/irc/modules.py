@@ -93,8 +93,8 @@ class Info:
     Modules.info_prep() and is passed to the modules.
     """
     __slots__ = ['cmd', 'channel', 'nickname', 'username', 'hostname', 'msg',
-                 'msg_nocmd', 'cmd_prefix', 'msgtype', 'msg_raw', 'db',
-                 'msg_ls', 'msg_prefix', 'cmd_ls', 'msg_full', 'modules',
+                 'msg_nocmd', 'cmd_prefix', 'msgtype', 'is_pm', 'msg_raw',
+                 'db', 'msg_ls', 'msg_prefix', 'cmd_ls', 'msg_full', 'modules',
                  'command_dict', 'auto_list', 'mod_import', 'blacklist',
                  'whitelist', 'msg_params', 'varget', 'varset']
 
@@ -301,6 +301,7 @@ class Modules:
         i.cmd_ls = msg.cmd_ls
         i.cmd_prefix = msg.chn_prefix
         i.msgtype = msg.msgtype
+        i.is_pm = i.channel == i.nickname
         i.db = [self.dbmem, self.dbdisk]
         i.varset = self.varmem.varset
         i.varget = self.varmem.varget
