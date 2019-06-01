@@ -31,6 +31,22 @@ from user_auth import user_auth
 class Module:
     def __init__(self):
         self.commands = ["ignore", "unignore", "ignored", "ignore_mode"]
+        self.helpmsg = [
+            "Usage: .ignore <Nickname>",
+            "       .unignore <Nickname>",
+            "       .ignored",
+            "       .ignore_mode <mode> <value>",
+            " ",
+            "Ignore a list of users. The will not be able to use your",
+            "nickname in the supported modules/commands.",
+            " ",
+            ".ignored : The bot will PM you a list of your ignored users.",
+            ".ignore_mode : <mode> :",
+            "                  ignore_all: to ignore everyone.",
+            "                  registered_only: to ignore unidentified users.",
+            "               <value> : True / False",
+            "Example: .ignore_mode registered_only true"
+        ]
 
 
 logo = "\x02ignore\x0F"
@@ -161,7 +177,7 @@ def main(i, irc):
     elif i.cmd == "unignore" and len(args) == 1:
         return irc.privmsg(i.channel, unignore(dbc, i.nickname, i.msg_nocmd))
     elif i.cmd == "ignored" and not i.msg_nocmd:
-        return irc.privmsg(i.channel, ignored(dbc, i.nickname))
+        return irc.privmsg(i.nickname, ignored(dbc, i.nickname))
     elif i.cmd == "ignore_mode" and i.msg_nocmd:
         if args[0] == "registered_only":
             if args[1].lower() == "true":
