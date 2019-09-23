@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
-# This file parses command line arguments and starts the bot.
+# This is the initialization file used to start the bot.
+# It parses command line arguments, verifies the state of the configuration.
+# file and calls the main bot functions.
 
 '''
-Copyright (C) 2018 drastik.org
+Copyright (C) 2017-2019 drastik.org
 
 This file is part of drastikbot.
 
-Drastikbot is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 only.
 
-Drastikbot is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Drastikbot. If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import os
@@ -29,6 +30,7 @@ import argparse
 import traceback
 from pathlib import Path
 
+from toolbox import config_check
 from dbot_tools import Logger
 from irc.worker import Main
 
@@ -62,6 +64,7 @@ def parser():
 
 if __name__ == "__main__":
     conf_dir = parser()
+    config_check.config_check(conf_dir)
     c = Main(conf_dir, proj_path)
     try:
         signal.signal(signal.SIGINT, c.sigint_hdl)
