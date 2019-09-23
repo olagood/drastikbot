@@ -1,25 +1,26 @@
-#!/usr/bin/env python3
 # coding=utf-8
 
-# This file provides methods for interaction with IRC servers.
+# This file provides methods for connecting to and sending message
+# to an IRC server. Additionally it keeps track of every vital
+# runtime variable the bot needs for its connection to the IRC server
+# and the management of its features.
 
 '''
-Copyright (C) 2018 drastik.org
+Copyright (C) 2017-2019 drastik.org
 
 This file is part of drastikbot.
 
-Drastikbot is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 only.
 
-Drastikbot is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Drastikbot. If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import socket
@@ -35,7 +36,7 @@ class Settings:
         self.cd = conf_dir
         self.proj_path = ''  # Project root.
         self.log = None  # Runtime Logging
-        self.version = "2.0 (alpha)"
+        self.version = "2.1 (alpha)"
         self.reconnect_delay = 0
         self.sigint = 0
         # Message length used by irc.send
@@ -76,21 +77,21 @@ class Settings:
         self.net_password = c_conn.get('net_password', '')
         self.quitmsg = c_conn.get('quitmsg', f'drastikbot {self.version}')
         self.msg_delay = c_conn.get('msg_delay', 1)
-        self.channels = c['irc']['channels']['join']
+        self.channels = c['irc']['channels']
         self.modules_obj = c['irc']['modules']
         self.modules_load = self.modules_obj['load']
         self.mod_glb_prefix = self.modules_obj['global_prefix']
         self.mod_chn_prefix = {}  # {#channel: cmd_prefix}
         # User Blacklist (rename this to ignore list)
         try:
-            bl = c['irc']['user_blacklist']
+            bl = c['irc']['user_acl']
         except KeyError:
             bl = ()
-        self.user_blacklist = tuple(i.lower() for i in bl)
+        self.user_acl = tuple(i.lower() for i in bl)
         # Channel Prefixes
-        for chan in self.channels.keys():
+        for chan in self.channels:
             try:
-                mpref = c['irc']['channels']['settings'][chan]['prefix']
+                mpref = c['irc']['modules']['channel_prefix'][chan]
             except KeyError:
                 mpref = self.mod_glb_prefix
             self.mod_chn_prefix[chan] = mpref
