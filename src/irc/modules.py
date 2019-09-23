@@ -1,25 +1,26 @@
-#!/usr/bin/env python3
 # coding=utf-8
 
 # Methods for importing, reloading and calling drastikbot modules.
+# Features for modules such as Variable Memory, SQLite databases,
+# channel blacklist and whitelist checks and user access list checks
+# are defined here.
 
 '''
-Copyright (C) 2018 drastik.org
+Copyright (C) 2017-2019 drastik.org
 
 This file is part of drastikbot.
 
-Drastikbot is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 only.
 
-Drastikbot is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Drastikbot. If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import sys
@@ -29,6 +30,7 @@ import traceback
 import inspect
 import sqlite3
 from dbot_tools import Config, Logger
+from toolbox import user_acl
 
 
 class VariableMemory:
@@ -323,6 +325,9 @@ class Modules:
                 return
             if not self.whitelist(module, i.channel):
                 return
+            if user_acl.is_banned(self.irc.var.user_acl, i.channel, i.nickname,
+                                  i.username, i.hostname, module):
+                return
             if module in md:
                 # We set i.cmd to the command's name.
                 i.cmd = command[1:]
@@ -349,6 +354,9 @@ class Modules:
             if self.blacklist(m, i.channel):
                 continue
             if not self.whitelist(m, i.channel):
+                continue
+            if user_acl.is_banned(self.irc.var.user_acl, i.channel, i.nickname,
+                                  i.username, i.hostname, m):
                 continue
             try:
                 # We set i.cmd to False to indicate that it's an auto call.
