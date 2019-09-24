@@ -379,7 +379,8 @@ def _module_wb_list_add(i, irc, module, channel, mode):
 
     if module not in i.modules:
         return 1  # This module is not loaded
-    elif module in c["irc"]["modules"][edom]:
+    elif (module in c["irc"]["modules"][edom]
+          and channel in c["irc"]["modules"][edom][module]):
         return 2  # This module has a {edom}list set
     elif module not in ls:
         ls.update({module: []})
@@ -468,8 +469,8 @@ def _module_wb_list_del(irc, module, channel, mode):
 
     c = Config(irc.cd).read()
     ls = c["irc"]["modules"][mode]
-    if channel in ls:
-        ls.remove(channel)
+    if module in ls and channel in ls[module]:
+        ls[module].remove(channel)
         Config(irc.cd).write(c)
         irc.var.config_load()
         return True
@@ -651,23 +652,23 @@ def admin_help(i, irc):
     part = [
         f"Usage: {i.cmd_prefix}part <channel> [message]",
         " Permission: Channel Operators",
-        "Leave a channel. Channel Operators can only use this command on",
-        "channels they have operator privilages."
+        "Leave a channel. Channel Operators can only use this command on"
+        " channels where they have operator privilages."
     ]
     privmsg = [
         f"Usage: {i.cmd_prefix}privmsg <channel> <message>",
         " Permission: Channel Operators",
-        "Have the bot send a private message to a channel or a person.",
-        "You must be an operator of the channel you want to send a private",
-        "message to. Only bot owners can use this command to send messages to",
-        "other users."
+        "Have the bot send a private message to a channel or a person. You"
+        " must be an operator of the channel you want to send a private"
+        " message to. Only bot owners can use this command to send messages to"
+        " other users."
     ]
     notice = [
         f"Usage: {i.cmd_prefix}notice <channel> <message>",
         " Permission: Channel Operators",
-        "Have the bot send a notice to a channel or a person.",
-        "You must be an operator of the channel you want to send a notice to.",
-        "Only bot owners can use this command to send notices to other users."
+        "Have the bot send a notice to a channel or a person. You must be an"
+        " operator of the channel you want to send a notice to. Only bot"
+        " owners can use this command to send notices to other users."
     ]
     acl_add = [
         f"Usage: {i.cmd_prefix}acl_add <channel> "
@@ -675,76 +676,70 @@ def admin_help(i, irc):
         " Permission: Channel Operators",
         "Add a user access list rule.",
         "Explanation:",
-        "<channel> : This can be a single channel or '*'. Users can",
-        "    only set this to a channel where they have operator",
-        "    privilages. '*' means all channels and can only be",
-        "    used by bot owners.",
-        "<nickname>: This can be the exact nickname of an IRC user",
-        "    or '*'.  '*' means any nickname.",
-        "<username>: This can be the exact username of an IRC user",
-        "    or '*' or '*<word>'. '*' means match any username.",
-        "    '*<word>' would match everything that has <word> in",
-        "    the end. Note that using  the * character in the",
-        "    middle or in the end of <word> would exactly match",
-        "    <word>* and won't expand to other usernames.",
-        "<hostname>: It can be the exact hostname of an IRC user or",
-        "    '*' or '*<word>'. '*' means match any hostname. Like",
-        "    the <username> argument, '*<word>' would match",
-        "    everything that has <word> in the end. Every other",
-        "    placement of the * character would be an exact match.",
-        "<duration>: Duration is used to specify for how long the",
-        "    rule should be in effect. The syntax used is yMwdhms.",
-        "    No spaces should be used. Example: 1y2M3m would mean 1",
-        "    year, 2 Months, 3 minutes. To have the rule in effect",
-        "    forever set this to '0'.",
-        "<mod1,...>: This is a list of modules that the rule will",
-        "    apply to. The list is comma seperated. Use '*' to have",
-        "    the rule apply for all modules.",
+        "<channel> : This can be a single channel or '*'. Users can only set"
+        " this to a channel where they have operator privilages. '*' means all"
+        " channels and can only be used by bot owners.",
+        "<nickname>: This can be the exact nickname of an IRC user or '*'."
+        "  '*' means any nickname.",
+        "<username>: This can be the exact username of an IRC user or '*' or"
+        " or '*<word>'. '*' means match any username. '*<word>' would match"
+        " everything that has <word> in the end. Note that using the *"
+        " character in the  middle or in the end of <word> would exactly"
+        " match <word>* and won't expand to other usernames.",
+        "<hostname>: It can be the exact hostname of an IRC user or '*' or"
+        " '*<word>'. '*' means match any hostname. Like the <username>"
+        " argument, '*<word>' would match everything that has <word> in the"
+        " end. Every other placement of the * character would be an exact"
+        " match.",
+        "<duration>: Duration is used to specify for how long the rule should"
+        " be in effect. The syntax used is yMwdhms. No spaces should be used."
+        " To have the rule in effect forever set this to '0'."
+        " Example: 1y2M3m would mean 1 year, 2 Months, 3 minutes.",
+        "<mod1,...>: This is a list of modules that the rule will apply to."
+        " The list is comma seperated. Use '*' to have the rule apply for all"
+        " modules.",
         "Examples:",
-        "#bots nick!*@* 0 * : Rule to block the user with the",
-        "    nickname 'nick' from using any module in the channel",
-        "    '#bots' forever.",
-        "#bots *!*@*isp.IP 1M1w3h tell : This rule will block any",
-        "    user coming from the domain 'isp.IP' from using the",
-        "    tell module for 1 Month 1 week and 3 hours in the channel #bots."
+        "#bots nick!*@* 0 * : Rule to block the user with the nickname 'nick'"
+        " from using any module in the channel #bots forever.",
+        "#bots *!*@*isp.IP 1M1w3h tell : This rule will block any user with"
+        " the domain 'isp.IP' from using the tell module for 1 Month 1 week"
+        " and 3 hours in the channel #bots."
     ]
     acl_del = [
         f"Usage: {i.cmd_prefix}acl_del <mask ID>",
         " Permission: Channel Operators",
-        "Remove a rule from the user access list using its ID. The ID can be",
-        "retrieved using the command: {i.cmd_prefix}acl_list",
-        "Note that the IDs might change everytime a rule is deleted."
-        "Users can only delete rules for channels where they have Operator",
-        "rights. Rules that have their channel part set to '*' can only be",
-        "deleted by the bot's owners."
+        "Remove a rule from the user access list using its ID. The ID can be"
+        " retrieved using the command: {i.cmd_prefix}acl_list. Note that the"
+        " IDs might change everytime a rule is deleted. Users can only delete"
+        " delete rules for channels where they have Operator rights. Rules"
+        " that have their channel part set to '*' can only be deleted by the"
+        " bot's owners."
     ]
     acl_list = [
         f"Usage: {i.cmd_prefix}acl_list",
         " Permission: Everyone",
-        "Get a list of every rule set. Rules are numbered. This number is",
-        "their current ID and can be used in the acl_del command."
+        "Get a list of every rule set. Rules are numbered. This number is"
+        " their current ID and can be used in the acl_del command."
     ]
     mod_import = [
         f"Usage: {i.cmd_prefix}mod_import",
         " Permission: Owners",
-        "Import any new modules specified in the configuration file and ",
-        "reload the currently imported ones."
+        "Import any new modules specified in the configuration file and reload"
+        " the currently imported ones."
     ]
     mod_whitelist_add = [
         f"Usage: {i.cmd_prefix}mod_whitelist_add <module> <channel>",
         " Permission: Channel Operators",
-        "Add a channel to a module's whitelist. This will make the module",
-        "only respond to the channels added in this whitelist. You cannot",
-        "add a channel to a modules whitelist if a blacklist is already in",
-        "place."
+        "Add a channel to a module's whitelist. This will make the module only"
+        " respond to the channels added in this whitelist. You cannot add a"
+        " channel to a modules whitelist if a blacklist is already in place."
     ]
     mod_blacklist_add = [
         f"Usage: {i.cmd_prefix}mod_blacklist_add <module> <channel>",
         " Permission: Channel Operators",
-        "Add a channel to a module's blacklist. This will make the module",
-        "not respond to the channels added in this blacklist. You cannot",
-        "add a channel to a modules blacklist if a whitelist is already in",
-        "place."
+        "Add a channel to a module's blacklist. This will make the module not"
+        " respond to the channels added in this blacklist. You cannot add a"
+        " channel to a modules blacklist if a whitelist is already in place."
     ]
     mod_whitelist_del = [
         f"Usage: {i.cmd_prefix}mod_whitelist_del <module> <channel>",
@@ -759,23 +754,22 @@ def admin_help(i, irc):
     mod_list = [
         f"Usage: {i.cmd_prefix}mod_list <channel>",
         " Permission: Channel Operators",
-        "Get a list of every module that has <channel> in its whitelist",
-        "or blacklist. Bot owners can omit the <channel argument> and get",
-        "a list of all channels that have been in a whitelist or a blacklist."
+        "Get a list of every module that has <channel> in its whitelist or"
+        " blacklist. Bot owners can omit the <channel argument> and get a list"
+        " of all channels that have been in a whitelist or a blacklist."
     ]
     mod_global_prefix_set = [
         f"Usage: {i.cmd_prefix}mod_global_prefix_set <prefix>",
         " Permission: Owners",
-        "Set the default prefix used for commands. This is the character used",
-        "before a command name. E.g.: .command  '.' is the prefix here."
+        "Set the default prefix used for commands. This is the character used"
+        " before a command name. E.g.: .command  '.' is the prefix here."
     ]
     mod_channel_prefix_set = [
         f"Usage: {i.cmd_prefix}mod_channel_prefix_set <channel> <prefix>",
         " Permission: Channel Operators",
-        "Set the default prefix used for commands in a specific channel.",
-        "This is the character used before a command name.",
-        "E.g.: .command  '.' is the prefix here.",
-        "This prefix overrides the default value."
+        "Set the default prefix used for commands in a specific channel. This"
+        " is the character used before a command name. E.g.: .command  '.' is"
+        " the prefix here. This prefix overrides the default value."
     ]
 
     help_d = {
