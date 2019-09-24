@@ -225,18 +225,10 @@ class Modules:
         or True if it is blacklisted.
         '''
         try:
-            blacklist = self.irc.var.modules_obj[
-                'settings'][module]['blacklist']
+            blacklist = self.irc.var.modules_obj['blacklist'][module]
         except KeyError as e:
-            if e.args[0] == 'settings':
-                self.irc.var.modules_obj.update(
-                    {'settings': {module: {'blacklist': []}}})
-            elif e.args[0] == module:
-                self.irc.var.modules_obj['settings'].update(
-                    {module: {'blacklist': []}})
-            elif e.args[0] == 'blacklist':
-                self.irc.var.modules_obj['settings'][module].update(
-                    {'blacklist': []})
+            if e.args[0] == module:
+                self.irc.var.modules_obj['blacklist'].update({module: []})
             return False
         if not blacklist:
             return False
@@ -253,18 +245,10 @@ class Modules:
         does not exist.
         '''
         try:
-            whitelist = self.irc.var.modules_obj[
-                'settings'][module]['whitelist']
+            whitelist = self.irc.var.modules_obj['whitelist'][module]
         except KeyError as e:
-            if e.args[0] == 'settings':
-                self.irc.var.modules_obj.update(
-                    {'settings': {module: {'whitelist': []}}})
-            elif e.args[0] == module:
-                self.irc.var.modules_obj['settings'].update(
-                    {module: {'whitelist': []}})
-            elif e.args[0] == 'whitelist':
-                self.irc.var.modules_obj['settings'][module].update(
-                    {'whitelist': []})
+            if e.args[0] == module:
+                self.irc.var.modules_obj['whitelist'].update({module: []})
             return True
         if not whitelist:
             return True
