@@ -281,5 +281,6 @@ class Main:
         self.thread_make(self.recieve)
         reg_t = self.thread_make(self.reg.reg_init)
         reg_t.join()  # wait until registered
+        self.log.info(f"\nNickname: {self.irc.var.curr_nickname}")
         if not reconnect:
             self.thread_make(self.mod.mod_startup, (self.irc,))
