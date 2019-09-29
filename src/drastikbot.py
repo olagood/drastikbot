@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # coding=utf-8
 
@@ -38,33 +39,60 @@ from irc.worker import Main
 proj_path = os.path.dirname(os.path.abspath(__file__))
 
 
+def print_banner():
+    banner = [
+        "---------------------------------------------------------------",
+        " Drastikbot 2.1",
+        "    An IRC bot focused on its extensibility and personalization",
+        "",
+        " License: GNU AGPLv3 only",
+        " Drastikbot 2.1 comes WITHOUT ANY WARRANTY",
+        ""
+        " Welcome!",
+        "---------------------------------------------------------------"
+    ]
+    for i in banner:
+        print(i)
+
+
 def parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--conf', nargs='?',
                         type=str, help='Specify the configuration directory')
     args = parser.parse_args()
+
+    # Check if a configuration directory is given or use the default one
+    # "~/.drastikbot"
     if args.conf:
-        # Check if a configuration directory is given
-        # or use the default one "~/drastikbot".
         path = Path(args.conf)
         if not path.is_dir():
-            sys.exit("[Error] Config directory does not exist.")
+            try:
+                path.mkdir(parents=True, exist_ok=False)
+            except FileExistsError:
+                sys.exit("[Error] Making configuration directory at"
+                         f" '{args.conf}' failed. Another file with that name"
+                         " already exists.")
         conf_dir = str(path.expanduser().resolve())
     else:
         path = Path('~/.drastikbot').expanduser()
         if not path.is_dir():
-            sys.exit("[Error] Config directory does not exist.")
-        else:
-            conf_dir = str(path)
+            try:
+                path.mkdir(parents=True, exist_ok=False)
+            except FileExistsError:
+                sys.exit("[Error] Making configuration directory at"
+                         " '~/.drastikbot' failed. Another file with that name"
+                         " already exists.")
+        conf_dir = str(path)
 
+    config_check.config_check(conf_dir)
     logger = Logger(conf_dir, 'runtime.log')
-    logger.info('\nDrastikbot: Starting...\n')
+    logger.info('\nStarting up...\n')
     return conf_dir
 
 
 if __name__ == "__main__":
+    print_banner()
     conf_dir = parser()
-    config_check.config_check(conf_dir)
     c = Main(conf_dir, proj_path)
     try:
         signal.signal(signal.SIGINT, c.sigint_hdl)
