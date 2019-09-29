@@ -686,11 +686,11 @@ def admin_help(i, irc):
         " everything that has <word> in the end. Note that using the *"
         " character in the  middle or in the end of <word> would exactly"
         " match <word>* and won't expand to other usernames.",
-        "<hostname>: It can be the exact hostname of an IRC user or '*' or"
-        " '*<word>'. '*' means match any hostname. Like the <username>"
-        " argument, '*<word>' would match everything that has <word> in the"
-        " end. Every other placement of the * character would be an exact"
-        " match.",
+        "<hostname>: It can be the exact hostname of an IRC user, '*',"
+        " '*<word>' or '<word>*'. '*' means match any hostname. '*<word>' and"
+        " '<word>*' would match everything that has <word> in the end or in"
+        " the beginning. Every other placement of the * character would be an"
+        " exact match.",
         "<duration>: Duration is used to specify for how long the rule should"
         " be in effect. The syntax used is yMwdhms. No spaces should be used."
         " To have the rule in effect forever set this to '0'."
