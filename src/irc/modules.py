@@ -221,8 +221,10 @@ class Modules:
     def blacklist(self, module, channel):
         '''
         Read the configuration file and get the blacklist for the given module.
-        Then return False if the module is not blacklisted in the given channel
-        or True if it is blacklisted.
+        [returns]
+            True : if the channel is in the blacklist
+            False: if the channel is not in the blacklist or if the blacklist
+                   is empty
         '''
         try:
             blacklist = self.irc.var.modules_obj['blacklist'][module]
@@ -239,10 +241,12 @@ class Modules:
 
     def whitelist(self, module, channel):
         '''
-        Read the configuration file and get the whitelist for the given module.
-        Then return True if the module is not whitelisted in the given channel
-        and the whitelist exists or False if it is whitelisted or the whitelist
-        does not exist.
+        Read the configuration file and check if the channel is in the
+        blacklist of the given module.
+        [returns]
+            True : if the channel is in the module's whitelist or if the
+                   whitelist is empty and
+            False: if the whitelist is not empty and the channel is not in it.
         '''
         try:
             whitelist = self.irc.var.modules_obj['whitelist'][module]
