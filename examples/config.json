@@ -1,26 +1,30 @@
 {
     "irc": {
-        "connection": {
-            "network": "chat.freenode.net",
-            "username": "drastikbot",
-            "port": 6697,
-            "auth_password": "",
-            "realname": "drastikbot2.0",
-            "ssl": true,
-            "nickname": "drastikbot",
-            "authentication": "sasl",
-            "net_password": ""
-        },
         "modules": {
             "load": [ ],
             "global_prefix": ".",
-            "settings": { }
+            "channel_prefix": {},
+            "blacklist": { },
+            "whitelist": { }
         },
         "channels": {
-            "join": {"#channel": "" }
+            "#bots": ""
         },
-        "owners": ["drastik"],
-        "user_blacklist": [ ]
+        "owners": [
+            "drastik"
+        ],
+        "connection": {
+            "network": "chat.freenode.org",
+            "username": "drastik",
+            "port": 6697,
+            "auth_password": "renton@openmailbox.org",
+            "realname": "drastikbot2.0",
+            "ssl": true,
+            "nickname": "lain",
+            "authentication": "sasl",
+            "net_password": ""
+        },
+        "user_acl": [ ]
     },
     "sys": {
         "log_level": "debug"
