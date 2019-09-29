@@ -82,7 +82,7 @@ class Settings:
         self.modules_load = self.modules_obj['load']
         self.mod_glb_prefix = self.modules_obj['global_prefix']
         self.mod_chn_prefix = {}  # {#channel: cmd_prefix}
-        # User Blacklist (rename this to ignore list)
+        # User Access List
         try:
             bl = c['irc']['user_acl']
         except KeyError:
