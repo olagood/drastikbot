@@ -5,7 +5,7 @@ Version 2.1 offers a new User Access List to stop users from abusing the bot's f
 an interface that allows Channel Operators and Bot Owners to access the bot's moderation and
 personalization features over IRC.
 
-Visit: https://drastik.org/drastikbot/
+Visit: http://drastik.org/drastikbot/
 
 ### Features
 - Automatic module reloading
@@ -27,7 +27,7 @@ GNU/Linux or any unix-like OS.
 
 ### Installing
 
-Check https://drastik.org/drastikbot/docs/start.html for installation and configuration instructions
+Check http://drastik.org/drastikbot/docs/start.html for installation and configuration instructions
 
 ### Modules
 
@@ -43,7 +43,7 @@ The code must be fully tested to ensure it does not break drastikbot or its modu
 
 ## Authors
 
-* **drastik** - [olagood](https://github.com/olagood) | [drastik.org](https://drastik.org)
+* **drastik** - [olagood](https://github.com/olagood) | [drastik.org](http://drastik.org)
 
 ## License
 
