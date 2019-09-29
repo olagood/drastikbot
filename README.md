@@ -1,9 +1,22 @@
 # drastikbot
 
-Drastikbot is an IRC bot that makes it easy to add new features thanks to it's modular design.
+Drastikbot is an IRC bot that makes it easy to add new features thanks to its modular design.
+Version 2.1 offers a new User Access List to stop users from abusing the bot's features and
+an interface that allows Channel Operators and Bot Owners to access the bot's moderation and
+personalization features over IRC.
+
 Visit: https://drastik.org/drastikbot/
 
-## Getting Started
+### Features
+- Automatic module reloading
+- Simple to use module API
+- SSL Support
+- SASL Support (Plain)
+- User Access Lists
+- Per module channel whilelist/blacklist
+- Per channel command prefix
+- User authentication with NickServ
+- Easy administration over IRC
 
 ### Prerequisites
 
@@ -24,7 +37,9 @@ Contributing new modules is welcomed provided that the Contribution guidelines b
 
 ## Contributing
 
-All code contributions must follow the PEP 8 styling guidelines. Use of flake8 is recommended. The code should be fully tested to ensure it does not break drastikbot or it's modules.
+All code contributions must follow the PEP 8 styling guidelines. Use of flake8 is recommended.
+
+The code must be fully tested to ensure it does not break drastikbot or its modules.
 
 ## Authors
 
@@ -32,4 +47,4 @@ All code contributions must follow the PEP 8 styling guidelines. Use of flake8 i
 
 ## License
 
-This project is licensed under the GNU General Public License Version 3 - see the [COPYING](COPYING) file for details
+This project is licensed under the GNU Affero General Public License Version 3 ONLY - see the [COPYING](COPYING) file for details.
