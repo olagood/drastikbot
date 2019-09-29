@@ -1,3 +1,7 @@
+:root {
+    --table-type-bg-color: #222;
+}
+
 body {
     background-color: #E7E9E7;
     font-weight: normal;
@@ -11,6 +15,12 @@ body, html {
 }
 
 /*---------- Menu ----------*/
+#logo {
+    background: url(../res/logo.svg) center no-repeat #2b4d6d;
+    padding:0;
+    width:100%;
+    height:50px;    
+}
 
 #menu {
     text-align: center;
@@ -31,7 +41,7 @@ body, html {
 }
 
 #menu a:hover, a:focus {
-    color: #eee;
+    color: #2b4d6d;
     text-decoration:none;
 }
 
@@ -50,7 +60,7 @@ body, html {
     margin: auto;
     float: right;
     width: 100%;
-    text-align: center;
+    text-align: left;
 }
 
 #newsbox ul {
@@ -97,10 +107,39 @@ table, th, tr {
     padding:2px;
 }
 
+td {padding: 3px;}
+
+.td_var {
+    font-weight: bold;
+    color: #fff;
+    background-color: #222;
+}
+
+.td_str {
+    background-color: var(--table-type-bg-color);
+    color: #82a8cf;
+}
+
+.td_num {
+    background-color: var(--table-type-bg-color);
+    color: #cfcf96;
+}
+
+.td_bool {
+    background-color: var(--table-type-bg-color);
+    color: #018383;
+}
+
+.td_dict {
+    background-color: var(--table-type-bg-color);
+    color: #7eb378;
+}
+
 .code {
+    font-family: monospace;
     text-align: left;
-    background: #111;
-    color: #eee;
+    background: #222;
+    color: #839496;
 }
 
 
@@ -151,16 +190,16 @@ table, th, tr {
 	    margin: 0;
 	    padding: 0 0 0 0px;
 	    color: #fff;
-        position: static;
+            position: static;
     }
     #docmenu h3 {
-	    display: none;
+        display: none;
     }
     #docmenu a {
         border: none;
         margin: 10px 10px 10px 10px;
-	    padding: 3px 3px 3px 3px;
-	    display: inline;
+        padding: 3px 3px 3px 3px;
+        display: inline;
     }
     
     #docmenu ul {
@@ -171,11 +210,11 @@ table, th, tr {
     
     #docmenu li {
         padding: 5px;
-	    display: inline;
+        display: inline;
     }
 
 
     #newsbox {
-        width: 100%;
+        width: 100% !important;
     }
 }
