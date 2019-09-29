@@ -37,6 +37,8 @@ def _m_host(m, hostmask):
         return True
     elif "*" == m[0] and m[1:] == hostmask[-len(m[1:]):]:
         return True
+    elif "*" == m[-1] and m[:-1] == hostmask[:len(m[:-1])]:
+        return True
     else:
         return False
 
@@ -82,8 +84,11 @@ def _is_banned(mask, channel, nick, user, hostmask, module):
         t = int(tmp[0])
         m = tmp[1]
 
-        if (c == channel or c == '*') and (n == nick or n == '*') \
-           and _m_user(u, user) and _check_time(t) and _m_host(h, hostmask) \
+        # Bans are not case sensitive
+        if (c.lower() == channel.lower() or c == '*') \
+           and (n.lower() == nick.lower() or n == '*') \
+           and _m_user(u.lower(), user.lower()) and _check_time(t) \
+           and _m_host(h, hostmask) \
            and _check_module(m, module):
             return True
         else:
