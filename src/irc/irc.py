@@ -84,10 +84,9 @@ class Settings:
         self.mod_chn_prefix = {}  # {#channel: cmd_prefix}
         # User Access List
         try:
-            bl = c['irc']['user_acl']
+            self.user_acl = tuple(c['irc']['user_acl'])
         except KeyError:
-            bl = ()
-        self.user_acl = tuple(i.lower() for i in bl)
+            self.user_acl = ()
         # Channel Prefixes
         for chan in self.channels:
             try:
