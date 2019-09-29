@@ -21,6 +21,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
+from pathlib import Path
+
 from dbot_tools import Logger, Config
 from toolbox import user_acl
 
@@ -38,7 +40,7 @@ def _check_owners(conf_dir):
     log = Logger(conf_dir, 'runtime.log')
     c = Config(conf_dir).read()
     if "owners" not in c["irc"]:
-        print("Setting up the bot's owners. Please enter a comma seperated "
+        print("\nSetting up the bot's owners. Please enter a comma seperated "
               "list of their IRC nicknames. The nicknames must be "
               "registered with nickserv.")
         o = input("> ")
@@ -53,15 +55,52 @@ def _check_connection(conf_dir):
     log = Logger(conf_dir, 'runtime.log')
     c = Config(conf_dir).read()
     if "connection" not in c["irc"]:
-        print("Setting up the IRC server connection details.")
-        network = input("Hostname [chat.freenode.net]: ")
-        port = int(input("Port [6697]: "))
-        ssl = bool(input("SSL: (true, false) [true]"))
+        print("\nSetting up the IRC server connection details.")
+
+        network = input("Hostname [chat.freenode.net]: ").replace(" ", "")
+        if not network:
+            network = "chat.freenode.net"
+
+        port = input("Port [6697]: ").replace(" ", "")
+        if not port:
+            port = 6697
+        else:
+            port = int(port)
+
+        while (1):
+            ssl = input("SSL: (true, false) [true]").replace(" ", "").lower()
+            if not ssl or ssl == "true":
+                ssl = True
+                break
+            elif ssl == "false":
+                ssl = False
+                break
+            print("\nError Invalid input. Try again.\n")
+
         net_password = input("Network Password []: ")
-        nickname = input("Nickname [drastikbot]: ")
-        username = input("Username [drastikbot]: ")
-        realname = input("Realname [drastikbot2]")
-        authentication = input("Authentication mode (nickserv, sasl) [sasl]: ")
+
+        nickname = input("Nickname [drastikbot]: ").replace(" ", "")
+        if not nickname:
+            nickname = "drastikbot"
+
+        username = input("Username [drastikbot]: ").replace(" ", "")
+        if not username:
+            username = "drastikbot"
+
+        realname = input("Realname [drastikbot2]: ")
+        if not realname:
+            realname = "drastikbot2"
+
+        while (1):
+            authentication = input("Authentication mode (nickserv, sasl)"
+                                   " [sasl]: ").replace(" ", "").lower()
+            if not authentication or authentication == "sasl":
+                authentication = "sasl"
+                break
+            elif authentication == "nickserv":
+                break
+            print("\nError Invalid input. Try again.\n")
+
         auth_password = input("Authentication Password []: ")
         c["irc"].update({"connection": {"network": network,
                                         "port": port,
@@ -83,7 +122,7 @@ def _check_channels(conf_dir):
         c["irc"].update({"channels": {}})
     if not c["irc"]["channels"]:
         chan_list = {}
-        print("Enter the channels you want to join.")
+        print("\nEnter the channels you want to join.")
         while True:
             ch = input("Channel (with #) (leave empty to exit): ")
             ch.replace(" ", "")
@@ -145,18 +184,27 @@ def _check_user_acl(conf_dir):
 
 
 def _check_sys(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
+    #log = Logger(conf_dir, 'runtime.log')
     c = Config(conf_dir).read()
     if "sys" not in c:
         c.update({"sys": {}})
-        log.info("<*> Configuration: created 'sys' section.")
+        #log.info("<*> Configuration: created 'sys' section.")
     if "log_level" not in c["sys"]:
         c["sys"].update({"log_level": "info"})
-        log.info("<*> Configuration: created 'sys.log_level'.")
+        #log.info("<*> Configuration: created 'sys.log_level'.")
     Config(conf_dir).write(c)
 
 
+def _check_exists(conf_dir):
+    p = Path(f"{conf_dir}/config.json")
+    if p.is_file():
+        return
+    with open(p, "w") as f:
+        f.write("{}")
+
+
 def config_check(conf_dir):
+    _check_exists(conf_dir)
     _check_sys(conf_dir)
     _check_irc(conf_dir)
     _check_owners(conf_dir)
