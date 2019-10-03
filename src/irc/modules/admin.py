@@ -278,7 +278,7 @@ def acl_add(i, irc):
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
-    if not _check_usermask:
+    if not _check_usermask(usermask):
         m = f"\x0304Invalid usermask: '{usermask}' given"
         return irc.notice(i.nickname, m)
 
