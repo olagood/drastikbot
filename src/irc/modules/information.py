@@ -35,8 +35,9 @@ def main(i, irc):
              " | \x0311http://drastik.org/drastikbot")
         irc.privmsg(i.channel, m)
     elif i.cmd == "source":
-        m = ("\x0305,01drastikbot\x0F"
-             " : \x0311https://github.com/olagood/drastikbot\x0F"
-             " | \x0305,01Modules\x0F"
-             " : \x0311https://github.com/olagood/drastikbot_modules\x0F")
-        irc.privmsg(i.channel, m)
+        if not i.msg_nocmd or i.msg_nocmd == irc.var.curr_nickname:
+            m = ("\x0305,01drastikbot\x0F"
+                 " : \x0311https://github.com/olagood/drastikbot\x0F"
+                 " | \x0305,01Modules\x0F"
+                 " : \x0311https://github.com/olagood/drastikbot_modules\x0F")
+            irc.privmsg(i.channel, m)
