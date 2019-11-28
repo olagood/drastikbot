@@ -330,7 +330,12 @@ def acl_del(i, irc):
     idx = int(i.msg_nocmd)
 
     c = Config(irc.cd).read()
-    mask = c['irc']['user_acl'][idx]
+    try:
+        mask = c['irc']['user_acl'][idx]
+    except IndexError:
+        m = "\x0304 This mask does not exist"
+        irc.notice(i.nickname, m)
+        return
     channel = mask.split(" ", 1)[0]
     if channel == '*':
         if not is_allowed(i, irc, i.nickname):
