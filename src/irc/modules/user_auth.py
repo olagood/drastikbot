@@ -49,9 +49,9 @@ def nickserv_handler(i):
     ls = i.msg_params.split()
     if ls[1] == 'ACC' and i.varget(ls[0]) == "_pending":
         if '3' in i.msg_params:
-            i.verset(ls[0], True)
+            i.varset(ls[0], True)
         else:
-            i.verset(ls[0], False)
+            i.varset(ls[0], False)
     elif ls[0] == 'STATUS' and i.varget(ls[1]) == "_pending":
         if '3' in i.msg_params:
             i.varset(ls[1], True)
