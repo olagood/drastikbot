@@ -310,7 +310,7 @@ def acl_add(i, irc):
 
 def _acl_del(irc, idx):
     c = Config(irc.cd).read()
-    if len(c['irc']['user_acl']) - 1 <= idx:
+    if len(c['irc']['user_acl']) - 1 >= idx:
         del c['irc']['user_acl'][idx]
         Config(irc.cd).write(c)
         irc.var.config_load()
@@ -544,7 +544,7 @@ def _module_wb_list_list(i, irc, channel=""):
         wl_message += f" {channel} :"
     for module in wl:
         if not channel:
-            wl_message += f" {module}: {wl['module']} /"
+            wl_message += f" {module}: {wl[module]} /"
         else:
             if channel in wl[module]:
                 wl_message += F" {module} /"
@@ -554,7 +554,7 @@ def _module_wb_list_list(i, irc, channel=""):
         bl_message += f" {channel} :"
     for module in bl:
         if not channel:
-            bl_message += f" {module}: {wl['module']} /"
+            bl_message += f" {module}: {bl[module]} /"
         else:
             if channel in wl[module]:
                 bl_message += F" {module} /"
@@ -567,7 +567,7 @@ def mod_list(i, irc):
     if not i.msg_nocmd:
         if not is_allowed(i, irc, i.nickname):
             m = (f"\x0304You are not authorized.\x0F "
-                 "Usage: {i.cmd_prefix}mod_list <channel> | "
+                 f"Usage: {i.cmd_prefix}mod_list <channel> | "
                  "Bot owners can ommit the <channel> argument.")
             return irc.notice(i.nickname, m)
         else:
@@ -578,7 +578,7 @@ def mod_list(i, irc):
              "Bot owners can ommit the <channel> argument.")
         if not is_allowed(i, irc, i.nickname):
             m = (f"\x0304You are not authorized. "
-                 "Are you an operator of {i.msg_nocmd}?")
+                 f"Are you an operator of {i.msg_nocmd}?")
             return irc.notice(i.nickname, m)
         else:
             return _module_wb_list_list(i, irc, i.msg_nocmd)
@@ -709,7 +709,7 @@ def admin_help(i, irc):
         f"Usage: {i.cmd_prefix}acl_del <mask ID>",
         " Permission: Channel Operators",
         "Remove a rule from the user access list using its ID. The ID can be"
-        " retrieved using the command: {i.cmd_prefix}acl_list. Note that the"
+        f" retrieved using the command: {i.cmd_prefix}acl_list. Note that the"
         " IDs might change everytime a rule is deleted. Users can only delete"
         " delete rules for channels where they have Operator rights. Rules"
         " that have their channel part set to '*' can only be deleted by the"
