@@ -157,7 +157,7 @@ def _check_modules(conf_dir):
         log.info("<*> Configuration: 'irc.modules.global_prefix' not found. "
                  "Setting default prefix '.'")
     if "channel_prefix" not in c["irc"]["modules"]:
-        c["irc"]["modules"].update({"channel_prefix": "."})
+        c["irc"]["modules"].update({"channel_prefix": {}})
         log.info("<*> Configuration: creating "
                  "'irc.modules.channel_prefix' ...")
     if "blacklist" not in c["irc"]["modules"]:
