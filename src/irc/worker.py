@@ -5,7 +5,7 @@
 # is also done in this file.
 
 '''
-Copyright (C) 2017-2019 drastik.org
+Copyright (C) 2017-2020 drastik.org
 
 This file is part of drastikbot.
 
@@ -56,6 +56,13 @@ class Register:
                                               self.msg.msg).group(1).split(' ')
         cap_req = [i for i in self.irc.var.ircv3_cap_ls
                    if i in self.irc.var.ircv3_cap_req]
+
+        # If the server doesnt support any capabilities we support end the
+        # registration now
+        if cap_req == []:
+            self.cap_end()
+            return
+
         self.irc.send(('CAP', 'REQ', ':{}'.format(' '.join(cap_req))))
 
     def cap_ack(self):
