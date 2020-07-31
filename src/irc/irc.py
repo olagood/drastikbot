@@ -50,7 +50,7 @@ class Settings:
         self.alt_nickname = False      # Alternative nickname used
         self.connected_ip = ''         # IP of the connected IRC server
         self.connected_host = ''       # Hostname of the connected server
-        self.ircv3_ver = '302'         # IRCv3 version supported by the bot
+        self.ircv3_ver = '301'         # IRCv3 version supported by the bot
         self.ircv3_cap_req = ('sasl')  # IRCv3 Bot Capability Requirements
         self.ircv3_serv = False  # True: IRCv3 supported by the server
         self.ircv3_cap_ls = []   # IRCv3 Server Capabilities
