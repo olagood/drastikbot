@@ -163,7 +163,7 @@ class Register:
         # SASL
         if self.irc.var.ircv3_cap_ack and self.irc.var.sasl_state == 0:
             self.sasl_init()
-        elif 'AUTHENTICATE +' in self.msg.msg:
+        elif 'AUTHENTICATE' in self.msg.msg:  # AUTHENTICATE +
             self.sasl_auth()
         elif '903' == cmd_ls[0]:  # SASL authentication successful
             self.sasl_succ()
