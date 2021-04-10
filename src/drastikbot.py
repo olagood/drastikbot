@@ -42,11 +42,11 @@ proj_path = os.path.dirname(os.path.abspath(__file__))
 def print_banner():
     banner = [
         "---------------------------------------------------------------",
-        " Drastikbot 2.1",
+        " Drastikbot 2.2",
         "    An IRC bot focused on its extensibility and personalization",
         "",
         " License: GNU AGPLv3 only",
-        " Drastikbot 2.1 comes WITHOUT ANY WARRANTY",
+        " Drastikbot 2.2 comes WITHOUT ANY WARRANTY",
         ""
         " Welcome!",
         "---------------------------------------------------------------"
