@@ -23,37 +23,46 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from pathlib import Path
 
-from dbot_tools import Logger, Config
+from dbot_tools import Logger
+from dbotconf import Configuration
 from toolbox import user_acl
 
 
-def _check_irc(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
-    if "irc" not in c:
-        c.update({"irc": {}})
-        Config(conf_dir).write(c)
+def config_check(confdir):
+    logger = Logger(confdir, 'runtime.log')
+    _check_exists(confdir)
+    conf = Configuration(confdir)
+    _check_sys(logger, conf)
+    _check_irc(logger, conf)
+    _check_owners(logger, conf)
+    _check_connection(logger, conf)
+    _check_channels(logger, conf)
+    _check_modules(logger, conf)
+    _check_user_acl(logger, conf)
+
+
+def _check_irc(logger, conf):
+    if "irc" not in conf.conf:
+        conf.conf.update({"irc": {}})
+        conf.save()
         log.info("<*> Configuration: created 'irc' section.")
 
 
-def _check_owners(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
-    if "owners" not in c["irc"]:
+def _check_owners(logger, conf):
+    if "owners" not in conf.conf["irc"]:
         print("\nSetting up the bot's owners. Please enter a comma seperated "
               "list of their IRC nicknames. The nicknames must be "
               "registered with nickserv.")
         o = input("> ")
         o.replace(" ", "")
         ls = o.split(",")
-        c["irc"].update({"owners": ls})
-        Config(conf_dir).write(c)
-        log.info("<*> Configuration: setting up 'irc.owners' ...")
+        conf.conf["irc"].update({"owners": ls})
+        conf.save()
+        logger.info("<*> Configuration: setting up 'irc.owners' ...")
 
 
-def _check_connection(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
+def _check_connection(logger, conf):
+    c = conf.conf
     if "connection" not in c["irc"]:
         print("\nSetting up the IRC server connection details.")
 
@@ -102,22 +111,21 @@ def _check_connection(conf_dir):
             print("\nError Invalid input. Try again.\n")
 
         auth_password = input("Authentication Password []: ")
-        c["irc"].update({"connection": {"network": network,
-                                        "port": port,
-                                        "ssl": ssl,
-                                        "net_password": net_password,
-                                        "nickname": nickname,
-                                        "username": username,
-                                        "realname": realname,
-                                        "authentication": authentication,
-                                        "auth_password": auth_password}})
-        Config(conf_dir).write(c)
-        log.info("<*> Configuration: setting up 'irc.connection' ...")
+        conf.conf["irc"].update({"connection": {"network": network,
+                                                "port": port,
+                                                "ssl": ssl,
+                                                "net_password": net_password,
+                                                "nickname": nickname,
+                                                "username": username,
+                                                "realname": realname,
+                                                "authentication": authentication,
+                                                "auth_password": auth_password}})
+        conf.save()
+        logger.info("<*> Configuration: setting up 'irc.connection' ...")
 
 
-def _check_channels(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
+def _check_channels(logger, conf):
+    c = conf.conf
     if "channels" not in c["irc"]:
         c["irc"].update({"channels": {}})
     if not c["irc"]["channels"]:
@@ -131,14 +139,13 @@ def _check_channels(conf_dir):
             ps = input("Password (leave empty if there is none): ")
             chan_list[ch] = ps
         c["irc"]["channels"].update(chan_list)
-        Config(conf_dir).write(c)
-        log.info("<*> Configuration: setting up 'irc.channels' ...")
+        conf.save()
+        logger.info("<*> Configuration: setting up 'irc.channels' ...")
 
 
-def _check_modules(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
-    conf_w = Config(conf_dir).write
+def _check_modules(logger, conf):
+    log = logger
+    c = conf.conf
     if "modules" not in c["irc"]:
         c["irc"].update({"modules": {}})
         log.info("<*> Configuration: 'irc.modules' not found. "
@@ -166,48 +173,37 @@ def _check_modules(conf_dir):
     if "whitelist" not in c["irc"]["modules"]:
         c["irc"]["modules"].update({"whitelist": {}})
         log.info("<*> Configuration: creating 'irc.modules.whitelist' ...")
-    conf_w(c)
+    conf.save()
 
 
-def _check_user_acl(conf_dir):
-    log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
+def _check_user_acl(logger, conf):
+    c = conf.conf
+    log = logger
     if "user_acl" not in c["irc"]:
-        c["irc"].update({"user_acl": []})
+        c["irc"]["user_acl"] = []
         log.info("<*> Configuration: setting up 'irc.user_acl' ...")
     for i in c["irc"]["user_acl"]:
         if user_acl.is_expired(i):
             c["irc"]["user_acl"].remove(i)
             log.info(f"<*> Configuration: removed expired mask: '{i}' from "
                      "'irc.user_acl' ...")
-    Config(conf_dir).write(c)
+    conf.save()
 
 
-def _check_sys(conf_dir):
-    #log = Logger(conf_dir, 'runtime.log')
-    c = Config(conf_dir).read()
+def _check_sys(logger, conf):
+    c = conf.conf
     if "sys" not in c:
         c.update({"sys": {}})
         #log.info("<*> Configuration: created 'sys' section.")
     if "log_level" not in c["sys"]:
         c["sys"].update({"log_level": "info"})
         #log.info("<*> Configuration: created 'sys.log_level'.")
-    Config(conf_dir).write(c)
+    conf.save()
 
 
-def _check_exists(conf_dir):
-    p = Path(f"{conf_dir}/config.json")
+def _check_exists(confdir):
+    p = Path(f"{confdir}/config.json")
     if p.is_file():
         return
     with open(p, "w") as f:
         f.write("{}")
-
-
-def config_check(conf_dir):
-    _check_exists(conf_dir)
-    _check_sys(conf_dir)
-    _check_irc(conf_dir)
-    _check_owners(conf_dir)
-    _check_connection(conf_dir)
-    _check_channels(conf_dir)
-    _check_modules(conf_dir)
