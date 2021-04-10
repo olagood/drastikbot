@@ -37,7 +37,7 @@ class Settings:
         self.cd = conf_dir
         self.proj_path = ''  # Project root.
         self.log = None  # Runtime Logging
-        self.version = "2.1 (alpha)"
+        self.version = "2.2 (alpha)"
         self.reconnect_delay = 0
         self.sigint = 0
         # Message length used by irc.send
