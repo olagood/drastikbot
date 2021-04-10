@@ -3,7 +3,7 @@
 # Module that provides an interface for managing the bot over IRC.
 
 '''
-Copyright (C) 2018-2019 drastik.org
+Copyright (C) 2018-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -22,7 +22,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import datetime
 
-from dbot_tools import Config
 from user_auth import user_auth
 
 
@@ -47,7 +46,7 @@ user_modes = ['~', '&', '@', '%']
 # Permission Checks
 #
 def is_bot_owner(irc, nickname):
-    if nickname in irc.var.owners:
+    if nickname in irc.conf.get_owners():
         return True
     else:
         return False
@@ -80,15 +79,6 @@ def is_allowed(i, irc, nickname, channel=""):
 #
 # Channel Management
 #
-def _join(irc, channel, password=""):
-    chan_dict = {channel: password}
-    conf_r = Config(irc.cd).read()
-    conf_r['irc']['channels'][channel] = password
-    Config(irc.cd).write(conf_r)
-    irc.var.config_load()
-    irc.join(chan_dict)
-
-
 def join(i, irc):
     if not i.msg_nocmd:
         m = f"Usage: {i.cmd_prefix}join <channel> [password]"
@@ -105,23 +95,13 @@ def join(i, irc):
     except IndexError:
         password = ""
 
-    if channel in irc.var.channels:
+    if irc.conf.has_channel(channel):
         m = f"\x0303The bot has already joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
-    _join(irc, channel, password)
+    irc.conf.set_channel(channel, password)
+    irc.join({channel: password})
     irc.notice(i.nickname, f"\x0303Joined {channel}")
-
-
-def _part(irc, channel, message=""):
-    conf_r = Config(irc.cd).read()
-    if channel not in conf_r['irc']['channels']:
-        return False
-    del conf_r['irc']['channels'][channel]
-    Config(irc.cd).write(conf_r)
-    irc.var.config_load()
-    irc.part(channel, message)
-    return True
 
 
 def part(i, irc):
@@ -136,7 +116,7 @@ def part(i, irc):
     except IndexError:
         message = ""
 
-    if channel not in irc.var.channels:
+    if not irc.conf.has_channel(channel):
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -144,10 +124,9 @@ def part(i, irc):
         m = f"\x0304You are not authorized. Are you an operator of {channel}?"
         return irc.notice(i.nickname, m)
 
-    if _part(irc, channel, message):
-        irc.notice(i.nickname, f"\x0303Left {channel}")
-    else:
-        irc.notice(i.nickname, f"\x0304{channel} not joined")
+    irc.conf.del_channel(channel)
+    irc.part(channel, message)
+    irc.notice(i.nickname, f"\x0303Left {channel}")
 
 
 def privmsg(i, irc):
@@ -162,7 +141,7 @@ def privmsg(i, irc):
     channel = args[0]
     message = args[1]
 
-    if channel not in irc.var.channels:
+    if not irc.conf.has_channel(channel):
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -186,7 +165,7 @@ def notice(i, irc):
     channel = args[0]
     message = args[1]
 
-    if channel not in irc.var.channels:
+    if  not irc.conf.has_channel(channel):
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -249,16 +228,6 @@ def _check_usermask(usermask):
         return False
 
 
-def _acl_add(irc, mask):
-    c = Config(irc.cd).read()
-    if mask in c['irc']['user_acl']:
-        return False  # The mask already exists
-    c['irc']['user_acl'].append(mask)
-    Config(irc.cd).write(c)
-    irc.var.config_load()
-    return len(c['irc']['user_acl']) - 1
-
-
 def acl_add(i, irc):
     m = (f"Usage: {i.cmd_prefix}acl_add "
          "<channel> <nickname>!<username>@<hostname> <duration> "
@@ -274,7 +243,7 @@ def acl_add(i, irc):
     duration = args[2]
     modules = args[3].replace(" ", "")
 
-    if channel not in irc.var.channels and channel != '*':
+    if not irc.conf.has_channel(channel) and channel != '*':
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -304,19 +273,8 @@ def acl_add(i, irc):
                  f"Are you an operator of {channel}?")
             return irc.notice(i.nickname, m)
 
-    _acl_add(irc, i.msg_nocmd)
+    irc.conf.add_user_access_list(i.msg_nocmd)
     irc.notice(i.nickname, f"\x0303User mask added in the ACL")
-
-
-def _acl_del(irc, idx):
-    c = Config(irc.cd).read()
-    if len(c['irc']['user_acl']) - 1 >= idx:
-        del c['irc']['user_acl'][idx]
-        Config(irc.cd).write(c)
-        irc.var.config_load()
-        return True
-    else:
-        return False  # Index out of range
 
 
 def acl_del(i, irc):
@@ -327,37 +285,22 @@ def acl_del(i, irc):
     if len(i.msg_nocmd.split()) > 1:
         return irc.notice(i.nickname, m)
 
-    idx = int(i.msg_nocmd)
+    index = int(i.msg_nocmd)
 
-    c = Config(irc.cd).read()
-    try:
-        mask = c['irc']['user_acl'][idx]
-    except IndexError:
-        m = "\x0304 This mask does not exist"
-        irc.notice(i.nickname, m)
+    if not irc.conf.has_index_user_access_list(index):
+        irc.notice(i.nickname, "\x0304 This mask does not exist")
         return
-    channel = mask.split(" ", 1)[0]
-    if channel == '*':
-        if not is_allowed(i, irc, i.nickname):
-            m = f"\x0304You are not authorized. Are you logged in?"
-            return irc.notice(i.nickname, m)
-    else:
-        if not is_allowed(i, irc, i.nickname, channel):
-            m = ("\x0304You are not authorized. "
-                 f"Are you an operator of {channel}?")
-            return irc.notice(i.nickname, m)
 
-    if _acl_del(irc, idx):
-        m = f"\x0303Deleted mask: '{mask}' from the ACL"
-        irc.notice(i.nickname, m)
-    else:
-        m = "\x0304 This mask does not exist"
-        irc.notice(i.nickname, m)
+    irc.conf.del_user_access_list(index)
+    m = f"\x0303Deleted mask with id {i.msg_nocmd} from the ACL"
+    irc.notice(i.nickname, m)
 
 
 def acl_list(i, irc):
-    for idx, mask in enumerate(irc.var.user_acl):
-        irc.privmsg(i.nickname, f"{idx}: {mask}")
+    for index, mask in enumerate(irc.conf.get_user_access_list()):
+        irc.notice(i.nickname, f"{index}: {mask}")
+    else:
+        irc.notice(i.nickname, "No masks in the ACL")
 
 
 #
@@ -368,34 +311,7 @@ def mod_import(i, irc):
         m = f"\x0304You are not authorized. Are you logged in?"
         return irc.notice(i.nickname, m)
     i.mod_import()
-    irc.notice(i.nickname, '\x0303New module were imported.')
-
-
-def _module_wb_list_add(i, irc, module, channel, mode):
-    if mode == "whitelist":
-        edom = "blacklist"
-    elif mode == "blacklist":
-        edom = "whitelist"
-    else:
-        raise ValueError("'mode' can only be 'whitelist' or 'blacklist'.")
-
-    c = Config(irc.cd).read()
-    ls = c["irc"]["modules"][mode]
-
-    if module not in i.modules:
-        return 1  # This module is not loaded
-    elif (module in c["irc"]["modules"][edom]
-          and channel in c["irc"]["modules"][edom][module]):
-        return 2  # This module has a {edom}list set
-    elif module not in ls:
-        ls.update({module: []})
-    elif channel in ls[module]:
-        return 3  # This channel has already been added.
-
-    ls[module].append(channel)
-    Config(irc.cd).write(c)
-    irc.var.config_load()
-    return 0
+    irc.notice(i.nickname, '\x0303Modules imported successfully.')
 
 
 def mod_whitelist_add(i, irc):
@@ -410,27 +326,33 @@ def mod_whitelist_add(i, irc):
     module = args[0]
     channel = args[1]
 
-    if channel not in irc.var.channels:
+    if not irc.conf.has_channel(channel):
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
     if not is_allowed(i, irc, i.nickname, channel):
         m = f"\x0304You are not authorized. Are you an operator of {channel}?"
-        return irc.notice(i.nickname, m)
+        irc.notice(i.nickname, m)
+        return
 
-    ret = _module_wb_list_add(i, irc, module, channel, "whitelist")
-    if ret == 1:
+    if module not in i.modules:
         irc.notice(i.nickname, f"\x0304The module: {module} is not loaded")
-    elif ret == 2:
+        return
+
+    if not irc.conf.is_allowed_module_whitelist(module):
         m = (f"\x0304The module: {module} has a blacklist set. "
              "Clear the blacklist and try again.")
         irc.notice(i.nickname, m)
-    elif ret == 3:
+        return
+
+    if irc.conf.has_channel_module_whitelist(module, channel):
         m = f"\x0304{channel} has already been added in {module}'s whitelist"
         irc.notice(i.nickname, m)
-    else:
-        m = f"\x0303{channel} added in {module}'s whitelist"
-        irc.notice(i.nickname, m)
+        return
+
+    irc.conf.add_channel_module_whitelist(module, channel)
+    m = f"\x0303{channel} added in {module}'s whitelist"
+    irc.notice(i.nickname, m)
 
 
 def mod_blacklist_add(i, irc):
@@ -445,42 +367,33 @@ def mod_blacklist_add(i, irc):
     module = args[0]
     channel = args[1]
 
-    if channel not in irc.var.channels:
+    if not irc.conf.has_channel(channel):
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
     if not is_allowed(i, irc, i.nickname, channel):
         m = f"\x0304You are not authorized. Are you an operator of {channel}?"
-        return irc.notice(i.nickname, m)
+        irc.notice(i.nickname, m)
+        return
 
-    ret = _module_wb_list_add(i, irc, module, channel, "blacklist")
-    if ret == 1:
+    if module not in i.modules:
         irc.notice(i.nickname, f"\x0304The module: {module} is not loaded")
-    elif ret == 2:
+        return
+
+    if not irc.conf.is_allowed_module_blacklist(module):
         m = (f"\x0304The module: {module} has a whitelist set. "
              "Clear the whitelist and try again.")
         irc.notice(i.nickname, m)
-    elif ret == 3:
+        return
+
+    if irc.conf.has_channel_module_blacklist(module, channel):
         m = f"\x0304{channel} has already been added in {module}'s blacklist"
         irc.notice(i.nickname, m)
-    else:
-        m = f"\x0303{channel} added in {module}'s blacklist"
-        irc.notice(i.nickname, m)
+        return
 
-
-def _module_wb_list_del(irc, module, channel, mode):
-    if mode != "whitelist" and mode != "blacklist":
-        raise ValueError("'mode' can only be 'whitelist' or 'blacklist'.")
-
-    c = Config(irc.cd).read()
-    ls = c["irc"]["modules"][mode]
-    if module in ls and channel in ls[module]:
-        ls[module].remove(channel)
-        Config(irc.cd).write(c)
-        irc.var.config_load()
-        return True
-    else:
-        return False  # This channel has not been added.
+    irc.conf.add_channel_module_blacklist(module, channel)
+    m = f"\x0303{channel} added in {module}'s blacklist"
+    irc.notice(i.nickname, m)
 
 
 def mod_whitelist_del(i, irc):
@@ -495,7 +408,7 @@ def mod_whitelist_del(i, irc):
     module = args[0]
     channel = args[1]
 
-    if channel not in irc.var.channels:
+    if channel not in irc.conf.get_channels():
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -503,12 +416,13 @@ def mod_whitelist_del(i, irc):
         m = f"\x0304You are not authorized. Are you an operator of {channel}?"
         return irc.notice(i.nickname, m)
 
-    if _module_wb_list_del(irc, module, channel, "whitelist"):
-        m = f"\x0303{channel} removed from {module}'s whitelist"
-        return irc.notice(i.nickname, m)
-    else:
+    if not irc.conf.has_channel_module_whitelist(module, channel):
         m = f"\x0304This channel has not been added in {module}'s whitelist"
         return irc.notice(i.nickname, m)
+
+    irc.conf.del_channel_module_whitelist(module, channel)
+    m = f"\x0303{channel} removed from {module}'s whitelist"
+    return irc.notice(i.nickname, m)
 
 
 def mod_blacklist_del(i, irc):
@@ -523,7 +437,7 @@ def mod_blacklist_del(i, irc):
     module = args[0]
     channel = args[1]
 
-    if channel not in irc.var.channels:
+    if channel not in irc.conf.get_channels():
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -531,24 +445,24 @@ def mod_blacklist_del(i, irc):
         m = f"\x0304You are not authorized. Are you an operator of {channel}?"
         return irc.notice(i.nickname, m)
 
-    if _module_wb_list_del(irc, module, channel, "blacklist"):
-        m = f"\x0303{channel} removed from {module}'s blacklist"
-        return irc.notice(i.nickname, m)
-    else:
+    if not irc.conf.has_channel_module_blacklist(module, channel):
         m = f"\x0304This channel has not been added in {module}'s blacklist"
         return irc.notice(i.nickname, m)
 
+    irc.conf.del_channel_module_blacklist(module, channel)
+    m = f"\x0303{channel} removed from {module}'s blacklist"
+    return irc.notice(i.nickname, m)
+
 
 def _module_wb_list_list(i, irc, channel=""):
-    c = Config(irc.cd).read()
-    wl = c["irc"]["modules"]["whitelist"]
-    bl = c["irc"]["modules"]["blacklist"]
+    wl = irc.conf.conf["irc"]["modules"]["whitelist"]
+    bl = irc.conf.conf["irc"]["modules"]["blacklist"]
 
     wl_message = "\x0301,00WHITELIST\x0F :"
     if channel:
         wl_message += f" {channel} :"
     for module in wl:
-        if not channel:
+        if not channel and wl[module]:
             wl_message += f" {module}: {wl[module]} /"
         else:
             if channel in wl[module]:
@@ -558,14 +472,14 @@ def _module_wb_list_list(i, irc, channel=""):
     if channel:
         bl_message += f" {channel} :"
     for module in bl:
-        if not channel:
+        if not channel and bl[module]:
             bl_message += f" {module}: {bl[module]} /"
         else:
             if channel in wl[module]:
                 bl_message += F" {module} /"
 
-    irc.privmsg(i.nickname, wl_message)
-    irc.privmsg(i.nickname, bl_message)
+    irc.notice(i.nickname, wl_message)
+    irc.notice(i.nickname, bl_message)
 
 
 def mod_list(i, irc):
@@ -589,34 +503,19 @@ def mod_list(i, irc):
             return _module_wb_list_list(i, irc, i.msg_nocmd)
 
 
-def _mod_global_prefix_set(irc, prefix):
-    c = Config(irc.cd).read()
-    c['irc']['modules']['global_prefix'] = prefix
-    Config(irc.cd).write(c)
-    irc.var.config_load()
-
-
 def mod_global_prefix_set(i, irc):
     if not is_allowed(i, irc, i.nickname):
         m = f"\x0304You are not authorized. Are you logged in?"
         return irc.notice(i.nickname, m)
 
     m = f"Usage: {i.cmd_prefix}mod_global_prefix_set <prefix>"
-    if not i.msg_nocmd:
+    if len(i.msg_nocmd.split(" ")) != 1:
         irc.notice(i.nickname, m)
-    elif len(i.msg_nocmd.split(" ")) > 1:
-        irc.notice(i.nickname, m)
-    else:
-        _mod_global_prefix_set(irc, i.msg_nocmd)
-        m = f"\x0303Successfully changed the global_prefix to {i.msg_nocmd}"
-        irc.notice(i.nickname, m)
+        return
 
-
-def _mod_channel_prefix_set(irc, channel, prefix):
-    c = Config(irc.cd).read()
-    c['irc']['modules']['channel_prefix'][channel] = prefix
-    Config(irc.cd).write(c)
-    irc.var.config_load()
+    irc.conf.set_global_prefix(i.msg_nocmd)
+    m = f"\x0303Changed the global_prefix to {i.msg_nocmd}"
+    irc.notice(i.nickname, m)
 
 
 def mod_channel_prefix_set(i, irc):
@@ -631,7 +530,7 @@ def mod_channel_prefix_set(i, irc):
     channel = args[0]
     prefix = args[1]
 
-    if channel not in irc.var.channels:
+    if channel not in irc.conf.get_channels():
         m = f"\x0304The bot has not joined the channel: {channel}"
         return irc.notice(i.nickname, m)
 
@@ -639,9 +538,8 @@ def mod_channel_prefix_set(i, irc):
         m = f"\x0304You are not authorized. Are you an operator of {channel}?"
         return irc.notice(i.nickname, m)
 
-    _mod_channel_prefix_set(irc, channel, prefix)
-    m = ("\x0303Successfully changed the channel_prefix for "
-         f"{channel} to {prefix}")
+    irc.conf.set_channel_prefix(channel, prefix)
+    m = (f"\x0303Changed the channel_prefix for {channel} to {prefix}")
     irc.notice(i.nickname, m)
 
 

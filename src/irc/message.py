@@ -21,6 +21,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
+import sys, timeit
 
 class Message:
     """
@@ -104,6 +105,6 @@ class Message:
         except IndexError:
             self.params_nocmd = ''
         try:
-            self.chn_prefix = irc.var.mod_chn_prefix[self.channel]
+            self.chn_prefix = irc.conf.get_channel_prefix(self.channel)
         except KeyError:
-            self.chn_prefix = irc.var.mod_glb_prefix
+            self.chn_prefix = irc.conf.get_global_prefix()

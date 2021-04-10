@@ -83,7 +83,7 @@ class Register:
         self.cap = 2
 
     def sasl_init(self):
-        if not self.irc.var.authentication.lower() == 'sasl' \
+        if not self.irc.conf.is_auth_method("sasl") \
            or 'sasl' not in self.irc.var.ircv3_cap_ack:
             self.sasl_fail()
         else:
@@ -91,11 +91,12 @@ class Register:
             self.irc.var.sasl_state = 3
 
     def sasl_auth(self):
-        username = self.irc.var.username
-        password = self.irc.var.auth_password
-        sasl_pass = f'{username}\0{username}\0{password}'
-        self.irc.send(('AUTHENTICATE',
-                       base64.b64encode(sasl_pass.encode('utf-8'))))
+        user = self.irc.conf.get_user()
+        password = self.irc.conf.get_auth_password()
+        m = f'{user}\0{user}\0{password}'
+        m = m.encode("utf-8")
+        m = base64.b64encode(m)
+        self.irc.send(('AUTHENTICATE', m))
 
     # --- NickServ --- #
     def nickserv_identify(self):
@@ -144,11 +145,13 @@ class Register:
 
     # --- Registration Handlers --- #
     def reg_init(self):
+        nickname = self.irc.conf.get_nickname()
+        user = self.irc.conf.get_user()
+        realname = self.irc.conf.get_realname()
         self.irc.send(('CAP', 'LS', self.irc.var.ircv3_ver))
-        self.irc.send(('USER', self.irc.var.username, '0', '*',
-                       f':{self.irc.var.realname}'))
-        self.irc.var.curr_nickname = self.irc.var.nickname
-        self.irc.nick(self.irc.var.nickname)
+        self.irc.send(('USER', user, '0', '*', f':{realname}'))
+        self.irc.var.curr_nickname = nickname
+        self.irc.nick(nickname)
 
     def ircv3_fn_caller(self):
         a = len(self.msg.cmd_ls)
@@ -183,7 +186,7 @@ class Register:
            and self.irc.var.authentication and self.nickserv_ghost_status == 0\
            and self.nickserv_recover_status == 0:
             self.nickserv_ghost()
-        if self.motd and self.irc.var.authentication.lower() == 'nickserv':
+        if self.motd and self.irc.conf.is_auth_method("nickserv"):
             self.nickserv_identify()
         if self.nickserv_ghost_status == 1:
             self.nickserv_ghost()
@@ -192,7 +195,7 @@ class Register:
         if self.motd and not self.nickserv_ghost_status == 1 \
            and not self.nickserv_recover_status == 1:
             self.irc.var.conn_state = 2
-            self.irc.join(self.irc.var.channels)
+            self.irc.join(self.irc.conf.get_channels())
 
     def reg_main(self, msg):
         self.msg = msg

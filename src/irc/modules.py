@@ -29,7 +29,8 @@ import importlib
 import traceback
 import inspect
 import sqlite3
-from dbot_tools import Config, Logger
+from dbot_tools import Logger
+from dbotconf import Configuration
 from toolbox import user_acl
 
 
@@ -52,9 +53,8 @@ class VariableMemory:
         # Check if it's a call from this module. (modules.py)
         if mod == __loader__.name:
             return
-        else:
-            name = f"{mod}_{name}"
 
+        name = f"{mod}_{name}"
         setattr(self, name, value)
 
     def varget(self, name, defval=False, raw=False):
@@ -128,7 +128,7 @@ class Modules:
         file (used for core modules needed for the bot's operation).
         '''
         path = Path(module_dir)
-        load = Config(self.cd).read()['irc']['modules']['load']
+        load = self.irc.conf.get_modules_load()
         if not path.is_dir():
             # Check if the module directory exists under the
             # configuration directory and make it otherwise.
@@ -218,49 +218,6 @@ class Modules:
         for value in self.modules.values():
             importlib.reload(value)
 
-    def blacklist(self, module, channel):
-        '''
-        Read the configuration file and get the blacklist for the given module.
-        [returns]
-            True : if the channel is in the blacklist
-            False: if the channel is not in the blacklist or if the blacklist
-                   is empty
-        '''
-        try:
-            blacklist = self.irc.var.modules_obj['blacklist'][module]
-        except KeyError as e:
-            if e.args[0] == module:
-                self.irc.var.modules_obj['blacklist'].update({module: []})
-            return False
-        if not blacklist:
-            return False
-        elif channel in blacklist:
-            return True
-        else:
-            return False
-
-    def whitelist(self, module, channel):
-        '''
-        Read the configuration file and check if the channel is in the
-        blacklist of the given module.
-        [returns]
-            True : if the channel is in the module's whitelist or if the
-                   whitelist is empty and
-            False: if the whitelist is not empty and the channel is not in it.
-        '''
-        try:
-            whitelist = self.irc.var.modules_obj['whitelist'][module]
-        except KeyError as e:
-            if e.args[0] == module:
-                self.irc.var.modules_obj['whitelist'].update({module: []})
-            return True
-        if not whitelist:
-            return True
-        elif channel in whitelist:
-            return True
-        else:
-            return False
-
     def info_prep(self, msg):
         """
         Set values in the Info() class and return that class.
@@ -298,8 +255,6 @@ class Modules:
         i.modules = self.modules
         i.command_dict = self.command_dict
         i.auto_list = self.auto_list
-        i.blacklist = self.blacklist
-        i.whitelist = self.whitelist
         i.mod_import = self.mod_import
         return i
 
@@ -309,11 +264,10 @@ class Modules:
                 module = self.command_dict[command[1:]]
             except KeyError:
                 return
-            if self.blacklist(module, i.channel):
+            if not self.irc.conf.check_channel_module_access(module, i.channel):
                 return
-            if not self.whitelist(module, i.channel):
-                return
-            if user_acl.is_banned(self.irc.var.user_acl, i.channel, i.nickname,
+            uacl = self.irc.conf.get_user_access_list()
+            if user_acl.is_banned(uacl, i.channel, i.nickname,
                                   i.username, i.hostname, module):
                 return
             if module in md:
@@ -339,13 +293,12 @@ class Modules:
             cmd_modules()
 
         for m in list(set(self.auto_list).intersection(md)):
-            if self.blacklist(m, i.channel):
+            if not self.irc.conf.check_channel_module_access(m, i.channel):
                 continue
-            if not self.whitelist(m, i.channel):
-                continue
-            if user_acl.is_banned(self.irc.var.user_acl, i.channel, i.nickname,
+            uacl = self.irc.conf.get_user_access_list()
+            if user_acl.is_banned(uacl, i.channel, i.nickname,
                                   i.username, i.hostname, m):
-                continue
+                continue  # Skip this module for this user
             try:
                 # We set i.cmd to False to indicate that it's an auto call.
                 i.cmd = ""
