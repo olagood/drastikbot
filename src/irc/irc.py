@@ -29,6 +29,7 @@ import time
 import traceback
 
 import dbot_tools
+from dbotconf import Configuration
 
 
 class Settings:
@@ -61,46 +62,13 @@ class Settings:
         self.namesdict = {}   # {channel1: [["=","S"], {nick1: ["@"], , ...}]}
         self.botmodes = []    # [x,I] Modes returned after registration
 
-    def config_load(self):
-        # (Re)loads the configuration file and sets the bot's variables.
-        c = dbot_tools.Config(self.cd).read()
-        c_conn = c['irc']['connection']
-        self.owners = c['irc']['owners']
-        self.host = c_conn['network']
-        self.port = c_conn['port']
-        self.ssl = c_conn.get('ssl', False)
-        self.nickname = c_conn['nickname']
-        self.username = c_conn['username']
-        self.realname = c_conn['realname']
-        self.authentication = c_conn.get('authentication', '')
-        self.auth_password = c_conn['auth_password']
-        self.net_password = c_conn.get('net_password', '')
-        self.quitmsg = c_conn.get('quitmsg', f'drastikbot {self.version}')
-        self.msg_delay = c_conn.get('msg_delay', 1)
-        self.channels = c['irc']['channels']
-        self.modules_obj = c['irc']['modules']
-        self.modules_load = self.modules_obj['load']
-        self.mod_glb_prefix = self.modules_obj['global_prefix']
-        self.mod_chn_prefix = {}  # {#channel: cmd_prefix}
-        # User Access List
-        try:
-            self.user_acl = tuple(c['irc']['user_acl'])
-        except KeyError:
-            self.user_acl = ()
-        # Channel Prefixes
-        for chan in self.channels:
-            try:
-                mpref = c['irc']['modules']['channel_prefix'][chan]
-            except KeyError:
-                mpref = self.mod_glb_prefix
-            self.mod_chn_prefix[chan] = mpref
-
 
 class Drastikbot():
     def __init__(self, conf_dir):
         self.cd = conf_dir
         self.log = dbot_tools.Logger(self.cd, 'runtime.log')
         self.var = Settings(self.cd)
+        self.conf = Configuration(self.cd)
 
     def set_msg_len(self, nick_ls):
         u = f"{nick_ls[0]}!{nick_ls[1]}@{nick_ls[2]} "
@@ -175,7 +143,7 @@ class Drastikbot():
 
     def quit(self, msg=''):
         if not msg:
-            msg = self.var.quitmsg
+            msg = self.conf.get_quitmsg()
         self.send(('QUIT',), msg)
 
     def away(self, msg=''):
@@ -198,13 +166,13 @@ class Drastikbot():
             self.var.reconnect_delay = 60 * 10
 
     def connect(self):
-        self.var.config_load()
+        host = self.conf.get_host()
+        port = self.conf.get_port()
         try:
             # Timeout on socket.create_connection should be above the irc
             # server's ping timeout setting
-            self.irc_socket = socket.create_connection(
-                (self.var.host, self.var.port), 300)
-            if self.var.ssl:
+            self.irc_socket = socket.create_connection((host, port), 300)
+            if self.conf.get_ssl():
                 self.irc_socket = ssl.wrap_socket(self.irc_socket)
         except OSError:
             if self.var.sigint:
@@ -231,9 +199,9 @@ class Drastikbot():
         # SOCKET OPTIONS
         # self.irc_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-        if self.var.net_password:
+        if self.conf.get_network_passoword():
             # Authenticate if the server is password protected
-            self.send(('PASS', self.var.net_password))
+            self.send(('PASS', self.conf.get_network_password()))
 
         # Set the connected variables, to inform the bot where exactly we are
         # connected
