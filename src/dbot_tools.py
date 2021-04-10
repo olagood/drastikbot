@@ -56,6 +56,7 @@ def p_truncate(text, whole, percent, ellipsis=False):
         t = t[:lim].rsplit(b' ', 1)[0]
     return t.decode('utf8', errors='ignore')
 
+
 class Logger:
     """
     This class provides minimal logging functionality.
