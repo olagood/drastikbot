@@ -27,6 +27,7 @@ import datetime
 import json
 import sys
 from pathlib import Path
+from dbotconf import Configuration
 
 
 def text_fix(line):
@@ -55,30 +56,6 @@ def p_truncate(text, whole, percent, ellipsis=False):
         t = t[:lim].rsplit(b' ', 1)[0]
     return t.decode('utf8', errors='ignore')
 
-
-class Config:
-    """
-    The Config class provides easy reading and writing to the
-    bot's configuration file.
-    conf_dir : should be the configuration directory.
-    """
-    def __init__(self, conf_dir):
-        self.config_file = '{}/config.json'.format(conf_dir)
-
-    def read(self):
-            with open(self.config_file, 'r') as f:
-                return json.load(f)
-
-    def write(self, value):
-        """
-        value : must be the whole configuration and not just a
-        setting, because the config file's contents are being
-        replaced with 'value'
-        """
-        with open(self.config_file, 'w') as f:
-            json.dump(value, f, indent=4)
-
-
 class Logger:
     """
     This class provides minimal logging functionality.
@@ -88,7 +65,7 @@ class Logger:
     - IF PROBLEMS OCCURE: make it thread safe
     """
     def __init__(self, conf_dir, log_filename):
-        config = Config(conf_dir).read()
+        config = Configuration(conf_dir).conf
         try:
             log_dir = config['sys']['log_dir']
         except KeyError:
