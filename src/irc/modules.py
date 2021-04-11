@@ -102,10 +102,11 @@ class Info:
 
 
 class Modules:
-    def __init__(self, irc):
+    def __init__(self, state, irc):
+        self.state = state
+        self.conf = state["conf"]
         self.irc = irc
-        self.cd = self.irc.var.cd
-        self.log = Logger(self.cd, 'modules.log')
+        self.log = Logger(state["loglevel"], state["logdir"], "modules.log")
         self.varmem = VariableMemory()
 
         self.modules = {}   # {Module Name : Module Callable}
@@ -116,7 +117,7 @@ class Modules:
         self.command_dict = {}  # {command1: module}
         # Databases #
         self.dbmem = sqlite3.connect(':memory:', check_same_thread=False)
-        self.dbdisk = sqlite3.connect('{}/drastikbot.db'.format(self.cd),
+        self.dbdisk = sqlite3.connect(f"{state['botdir']}/drastikbot.db",
                                       check_same_thread=False)
         self.mod_settings = {}  # {Module Name : {setting : value}}
 
@@ -128,7 +129,7 @@ class Modules:
         file (used for core modules needed for the bot's operation).
         '''
         path = Path(module_dir)
-        load = self.irc.conf.get_modules_load()
+        load = self.conf.get_modules_load()
         if not path.is_dir():
             # Check if the module directory exists under the
             # configuration directory and make it otherwise.
@@ -136,7 +137,7 @@ class Modules:
             self.log.info(' - Module directory created at: {}'
                           .format(module_dir))
         # Append the module directory in the sys.path variable
-        sys.path.append(module_dir)
+        sys.path.append(str(module_dir))
         files = [f for f in path.iterdir() if Path(
             PurePath(module_dir).joinpath(f)).is_file()]
         modimp_list = []
@@ -161,9 +162,9 @@ class Modules:
         importlib.invalidate_caches()
 
         modimp_list = []
-        module_dir = self.cd + '/modules'
+        module_dir = Path(self.state["botdir"], 'modules')
         modimp_list.extend(self.mod_imp_prep(module_dir))
-        module_dir = self.irc.var.proj_path + '/irc/modules'
+        module_dir = self.state["program_path"] + '/irc/modules'
         modimp_list.extend(self.mod_imp_prep(module_dir, auto=True))
 
         # Empty variabled from previous import:
@@ -313,7 +314,7 @@ class Modules:
         The bot doesn't manage the modules after they get started.
         This could be problematic for modules that are blocking and so they
         should periodically check the bot's connection state (e.g. by checking
-        the value of "irc.var.conn_state") and handle a possible disconnect.
+        the value of "irc.conn_state") and handle a possible disconnect.
         The bot's whitelist/blacklist is not being taken into account.
         The "msgtype" and "cmd" passed to the modules is "STARTUP".
         The "info" tuple is perfectly matched by blank strings.

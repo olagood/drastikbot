@@ -97,7 +97,7 @@ class Message:
             'PRIVMSG': _privmsg
             }.get(self.msgtype, __rest)()
 
-        if self.channel == irc.var.curr_nickname:
+        if self.channel == irc.curr_nickname:
             self.channel = self.nickname
 
         try:
@@ -105,6 +105,7 @@ class Message:
         except IndexError:
             self.params_nocmd = ''
         try:
-            self.chn_prefix = irc.conf.get_channel_prefix(self.channel)
+            self.chn_prefix = irc.state["conf"].get_channel_prefix(
+                self.channel)
         except KeyError:
-            self.chn_prefix = irc.conf.get_global_prefix()
+            self.chn_prefix = irc.state["conf"].get_global_prefix()

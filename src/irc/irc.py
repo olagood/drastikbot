@@ -29,15 +29,14 @@ import time
 import traceback
 
 import dbot_tools
-from dbotconf import Configuration
 
 
-class Settings:
-    def __init__(self, conf_dir):
-        self.cd = conf_dir
-        self.proj_path = ''  # Project root.
-        self.log = None  # Runtime Logging
-        self.version = "2.2 (alpha)"
+class Drastikbot():
+    def __init__(self, state):
+        self.state = state
+        self.conf = state["conf"]
+        self.log = state["runlog"]
+
         self.reconnect_delay = 0
         self.sigint = 0
         # Message length used by irc.send
@@ -58,25 +57,16 @@ class Settings:
         self.ircv3_cap_ack = []  # IRCv3 Server Capabilities Acknowledged
         # sasl_state = 0: Not tried | 1: Success | 2: Fail | 3: In progress
         self.sasl_state = 0
-        self.conn_state = 0   # 0: Disconnected | 1: Registering | 2: Connected
-        self.namesdict = {}   # {channel1: [["=","S"], {nick1: ["@"], , ...}]}
-        self.botmodes = []    # [x,I] Modes returned after registration
-
-
-class Drastikbot():
-    def __init__(self, conf_dir):
-        self.cd = conf_dir
-        self.log = dbot_tools.Logger(self.cd, 'runtime.log')
-        self.var = Settings(self.cd)
-        self.conf = Configuration(self.cd)
+        self.conn_state = 0  # 0: Disconnected | 1: Registering | 2: Connected
+        self.namesdict = {}  # {channel1: [["=","S"], {nick1: ["@"], , ...}]}
+        self.botmodes = []   # [x,I] Modes returned after registration
 
     def set_msg_len(self, nick_ls):
         u = f"{nick_ls[0]}!{nick_ls[1]}@{nick_ls[2]} "
         c = len(u.encode('utf-8'))
-        self.var.msg_len = 512 - c
+        self.msg_len = 512 - c
 
     def send(self, cmds, text=None):
-        m_len = self.var.msg_len
         cmds = [dbot_tools.text_fix(cmd) for cmd in cmds]
         if text:
             text = dbot_tools.text_fix(text)
@@ -90,11 +80,11 @@ class Drastikbot():
             tosend = tosend.encode('utf-8')
             multipart = False
             remainder = 0
-            if len(tosend) + 2 > m_len:
+            if len(tosend) + 2 > self.msg_len:
                 # Handle messages that are too long to fit in one message.
                 # Truncate messages at the last space found to avoid breaking
                 # utf-8.
-                tosend = tosend[:m_len].rsplit(b' ', 1)
+                tosend = tosend[:self.msg_len].rsplit(b' ', 1)
                 remainder = len(tosend[1])
                 multipart = True
                 tosend = tosend[0]
@@ -112,8 +102,9 @@ class Drastikbot():
         # amount of messages, since zero will never be met in the if
         # statement below.
         if multipart:
-            time.sleep(self.var.msg_delay)
-            tr = m_len - 2 - len(' '.join(cmds).encode('utf-8')) - remainder
+            time.sleep(self.msg_delay)
+            irc_msg_len = len(' '.join(cmds).encode('utf-8'))
+            tr = self.msg_len - 2 - irc_msg_len - remainder
             t = text.encode('utf-8')[tr:]
             self.send(cmds, t)
 
@@ -155,15 +146,15 @@ class Drastikbot():
         is zero, then it is set to ten seconds and keeps doubling after each
         attempt until it reaches ten minutes.
         '''
-        time.sleep(self.var.reconnect_delay)
-        if self.var.reconnect_delay == 0:
-            self.var.reconnect_delay = 10  # 10 sec.
-        elif self.var.reconnect_delay < 60 * 10:  # 10 mins.
-            self.var.reconnect_delay *= 2
+        time.sleep(self.reconnect_delay)
+        if self.reconnect_delay == 0:
+            self.reconnect_delay = 10  # 10 sec.
+        elif self.reconnect_delay < 60 * 10:  # 10 mins.
+            self.reconnect_delay *= 2
         # Because the previous statement will end up with 640 seconds,
         # we set it to 600 seconds and keep it there until we connect:
-        if self.var.reconnect_delay > 60 * 10:  # 10 mins.
-            self.var.reconnect_delay = 60 * 10
+        if self.reconnect_delay > 60 * 10:  # 10 mins.
+            self.reconnect_delay = 60 * 10
 
     def connect(self):
         host = self.conf.get_host()
@@ -175,12 +166,12 @@ class Drastikbot():
             if self.conf.get_ssl():
                 self.irc_socket = ssl.wrap_socket(self.irc_socket)
         except OSError:
-            if self.var.sigint:
+            if self.sigint:
                 return
             self.log.debug('Exception on connect() @ irc_sock.connect()'
                            f'\n{traceback.format_exc()}')
             self.log.info(' - No route to host. Retrying in {} seconds'.format(
-                self.var.reconnect_delay))
+                self.reconnect_delay))
             try:
                 self.irc_socket.close()
             except Exception:
@@ -210,8 +201,8 @@ class Drastikbot():
             # Because they are not vital to the bot's operation we will just
             # ignore them.
             # Consider adding them to dbot_tools as functions.
-            self.var.connected_ip = self.irc_socket.getpeername()[0]
-            self.var.connected_host = socket.gethostbyaddr(
-                self.var.connected_ip)[0]
+            self.connected_ip = self.irc_socket.getpeername()[0]
+            self.connected_host = socket.gethostbyaddr(
+                self.connected_ip)[0]
         except Exception:
             pass

@@ -5,7 +5,7 @@
 # is also done in this file.
 
 '''
-Copyright (C) 2017-2020 drastik.org
+Copyright (C) 2017-2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -26,6 +26,7 @@ from threading import Thread
 import os
 import re
 import base64
+import signal
 import traceback
 
 from irc.message import Message
@@ -50,12 +51,12 @@ class Register:
 
     # --- IRCv3 --- #
     def cap_ls(self):
-        self.irc.var.ircv3_serv = True
+        self.irc.ircv3_serv = True
         self.cap = 1
-        self.irc.var.ircv3_cap_ls = re.search(r"(?:CAP .* LS :)(.*)",
-                                              self.msg.msg).group(1).split(' ')
-        cap_req = [i for i in self.irc.var.ircv3_cap_ls
-                   if i in self.irc.var.ircv3_cap_req]
+        self.irc.ircv3_cap_ls = re.search(r"(?:CAP .* LS :)(.*)",
+                                          self.msg.msg).group(1).split(' ')
+        cap_req = [i for i in self.irc.ircv3_cap_ls
+                   if i in self.irc.ircv3_cap_req]
 
         # If the server doesnt support any capabilities we support end the
         # registration now
@@ -67,7 +68,7 @@ class Register:
 
     def cap_ack(self):
         cap_ack = re.search(r"(?:CAP .* ACK :)(.*)", self.msg.msg).group(1)
-        self.irc.var.ircv3_cap_ack = cap_ack.split()
+        self.irc.ircv3_cap_ack = cap_ack.split()
 
     def cap_end(self):
         self.irc.send(('CAP', 'END'))
@@ -75,20 +76,20 @@ class Register:
 
     # -- SASL #
     def sasl_succ(self):
-        self.irc.var.sasl_state = 1
+        self.irc.sasl_state = 1
         self.cap = 2
 
     def sasl_fail(self):
-        self.irc.var.sasl_state = 2
+        self.irc.sasl_state = 2
         self.cap = 2
 
     def sasl_init(self):
         if not self.irc.conf.is_auth_method("sasl") \
-           or 'sasl' not in self.irc.var.ircv3_cap_ack:
+           or 'sasl' not in self.irc.ircv3_cap_ack:
             self.sasl_fail()
         else:
             self.irc.send(('AUTHENTICATE', 'PLAIN'))
-            self.irc.var.sasl_state = 3
+            self.irc.sasl_state = 3
 
     def sasl_auth(self):
         user = self.irc.conf.get_user()
@@ -100,26 +101,26 @@ class Register:
 
     # --- NickServ --- #
     def nickserv_identify(self):
-        nickname = self.irc.var.nickname
-        password = self.irc.var.auth_password
+        nickname = self.irc.nickname
+        password = self.irc.auth_password
         self.irc.privmsg('NickServ', f'IDENTIFY {nickname} {password}')
 
     def nickserv_recover(self):
-        nickname = self.irc.var.nickname
-        password = self.irc.var.auth_password
-        if self.irc.var.authentication and self.irc.var.auth_password \
+        nickname = self.irc.nickname
+        password = self.irc.auth_password
+        if self.irc.authentication and self.irc.auth_password \
            and self.nickserv_recover_status == 0:
             self.irc.privmsg('NickServ', f'RECOVER {nickname} {password}')
             self.nickserv_recover_status = 1
         elif "You have regained control" in self.msg.msg:
             self.nickserv_recover_status = 0
-            self.irc.var.curr_nickname = nickname
-            self.irc.var.alt_nickname = False
+            self.irc.curr_nickname = nickname
+            self.irc.alt_nickname = False
 
     def nickserv_ghost(self):
-        nickname = self.irc.var.nickname
-        password = self.irc.var.auth_password
-        if self.irc.var.authentication and self.irc.var.auth_password \
+        nickname = self.irc.nickname
+        password = self.irc.auth_password
+        if self.irc.authentication and self.irc.auth_password \
            and self.nickserv_ghost_status == 0:
             self.irc.privmsg('NickServ', f'GHOST {nickname} {password}')
             self.nickserv_ghost_status = 1
@@ -128,8 +129,8 @@ class Register:
             self.irc.nick(nickname)
             self.nickserv_identify()
             self.nickserv_ghost_status = 0
-            self.irc.var.curr_nickname = nickname
-            self.irc.var.alt_nickname = False
+            self.irc.curr_nickname = nickname
+            self.irc.alt_nickname = False
         elif "/msg NickServ help" in self.msg.msg or \
              "/msg NickServ HELP" in self.msg.msg:
             self.nickserv_ghost_status = 0
@@ -139,18 +140,18 @@ class Register:
 
     # --- Error Handlers --- #
     def err_nicnameinuse_433(self):
-        self.irc.var.curr_nickname = self.irc.var.curr_nickname + '_'
-        self.irc.nick(self.irc.var.curr_nickname)
-        self.irc.var.alt_nickname = True
+        self.irc.curr_nickname = self.irc.curr_nickname + '_'
+        self.irc.nick(self.irc.curr_nickname)
+        self.irc.alt_nickname = True
 
     # --- Registration Handlers --- #
     def reg_init(self):
         nickname = self.irc.conf.get_nickname()
         user = self.irc.conf.get_user()
         realname = self.irc.conf.get_realname()
-        self.irc.send(('CAP', 'LS', self.irc.var.ircv3_ver))
+        self.irc.send(('CAP', 'LS', self.irc.ircv3_ver))
         self.irc.send(('USER', user, '0', '*', f':{realname}'))
-        self.irc.var.curr_nickname = nickname
+        self.irc.curr_nickname = nickname
         self.irc.nick(nickname)
 
     def ircv3_fn_caller(self):
@@ -164,7 +165,7 @@ class Register:
         if '433' in self.msg.cmd_ls[0]:
             self.err_nicnameinuse_433()
         # SASL
-        if self.irc.var.ircv3_cap_ack and self.irc.var.sasl_state == 0:
+        if self.irc.ircv3_cap_ack and self.irc.sasl_state == 0:
             self.sasl_init()
         elif 'AUTHENTICATE' in self.msg.msg:  # AUTHENTICATE +
             self.sasl_auth()
@@ -182,8 +183,8 @@ class Register:
         if '376' in self.msg.cmd_ls[0]:  # RPL_ENDOFMOTD
             self.motd = True
 
-        if self.motd and self.irc.var.alt_nickname \
-           and self.irc.var.authentication and self.nickserv_ghost_status == 0\
+        if self.motd and self.irc.alt_nickname \
+           and self.irc.authentication and self.nickserv_ghost_status == 0\
            and self.nickserv_recover_status == 0:
             self.nickserv_ghost()
         if self.motd and self.irc.conf.is_auth_method("nickserv"):
@@ -194,7 +195,7 @@ class Register:
             self.nickserv_recover()
         if self.motd and not self.nickserv_ghost_status == 1 \
            and not self.nickserv_recover_status == 1:
-            self.irc.var.conn_state = 2
+            self.irc.conn_state = 2
             self.irc.join(self.irc.conf.get_channels())
 
     def reg_main(self, msg):
@@ -208,33 +209,38 @@ class Register:
 
 
 class Main:
-    def __init__(self, conf_dir, proj_path, mod=False):
-        self.irc = Drastikbot(conf_dir)
-        self.irc.var.proj_path = proj_path
+    def __init__(self, state, mod=False):
+        self.state = state
+
+        signal.signal(signal.SIGINT, self.main)
+
+        self.log = state["runlog"]
+        self.irc = Drastikbot(state)
+
         if mod:
             self.mod = mod
             mod.irc = self.irc  # Update the irc variable
         else:
-            self.mod = Modules(self.irc)
+            self.mod = Modules(state, self.irc)
+
         self.reg = Register(self.irc)
-        self.log = Logger(conf_dir, 'runtime.log')
-        self.irc.var.log = self.log
+
 
     def conn_lost(self):
-        if self.irc.var.sigint:
+        if self.irc.sigint:
             return
         self.log.info('<!> Connection Lost. Retrying in {} seconds.'
-                      .format(self.irc.var.reconnect_delay))
+                      .format(self.irc.reconnect_delay))
         self.irc.irc_socket.close()
-        self.irc.var.conn_state = 0
+        self.irc.conn_state = 0
         self.irc.reconn_wait()  # Wait before next reconnection attempt.
         self.log.info('> Reconnecting...')
         # Reload the class
-        self.__init__(self.irc.cd, self.irc.var.proj_path, mod=self.mod)
+        self.__init__(self.state, mod=self.mod)
         self.main(reconnect=True)  # Restart the bot
 
     def recieve(self):
-        while self.irc.var.conn_state != 0:
+        while self.irc.conn_state != 0:
             try:
                 msg_raw = self.irc.irc_socket.recv(4096)
             except Exception:
@@ -247,11 +253,11 @@ class Main:
             for line in msg_raw_ls:
                 if line:
                     msg = Message(line)
-                    if self.irc.var.conn_state == 2:
+                    if self.irc.conn_state == 2:
                         self.service(msg)
                     if 'PING' == msg.cmd_ls[0]:
                         self.irc.send(('PONG', msg.params))
-                    elif self.irc.var.conn_state == 1:
+                    elif self.irc.conn_state == 1:
                         self.service(msg)
                         self.reg.reg_main(msg)
 
@@ -272,10 +278,10 @@ class Main:
         return thread
 
     def sigint_hdl(self, signum, frame):
-        if self.irc.var.sigint == 0:
+        if self.irc.sigint == 0:
             self.log.info("\n> Quiting...")
-            self.irc.var.sigint += 1
-            self.irc.var.conn_state = 0
+            self.irc.sigint += 1
+            self.irc.conn_state = 0
             self.irc.quit()
         else:
             self.log.info("\n Force Quit.")
@@ -285,12 +291,12 @@ class Main:
         self.irc.connect()
         if not reconnect:
             self.mod.mod_import()
-        if self.irc.var.sigint:
+        if self.irc.sigint:
             return
-        self.irc.var.conn_state = 1
+        self.irc.conn_state = 1
         self.thread_make(self.recieve)
         reg_t = self.thread_make(self.reg.reg_init)
         reg_t.join()  # wait until registered
-        self.log.info(f"\nNickname: {self.irc.var.curr_nickname}")
+        self.log.info(f"\nNickname: {self.irc.curr_nickname}")
         if not reconnect:
             self.thread_make(self.mod.mod_startup, (self.irc,))
