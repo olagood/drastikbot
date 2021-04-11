@@ -67,10 +67,10 @@ class Logger:
         self.log_mode = level
         self.log_dir = logdir
 
-        if not Path(log_dir).exists():
-            Path(log_dir).mkdir(parents=True, exist_ok=True)
+        if not Path(logdir).exists():
+            Path(logdir).mkdir(parents=True, exist_ok=True)
 
-        self.log_file = Path('{}/{}'.format(log_dir, log_filename))
+        self.log_file = Path('{}/{}'.format(logdir, logname))
 
     def log_write(self, msg, line):
         with open(self.log_file, 'a+') as log:
