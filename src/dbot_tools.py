@@ -2,7 +2,7 @@
 
 # Common tools used by the bot and it's modules.
 # Tools: - text_fix: decode message and remove whitespace
-#        - Config  : config file reader and writer
+#        - p_truncate: Truncate text messages by percentage
 #        - Logger  : Logger functions
 
 '''
