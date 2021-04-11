@@ -48,41 +48,6 @@ class Configuration:
         with open(self.path, "w") as f:
             json.dump(self.conf, f, indent=4)
 
-    def verify(self):
-        state = []
-        if "sys" not in self.conf:
-            state.append("sys")
-        if "log_level" not in self.conf["sys"]:
-            state.append("sys:log_level")
-        if "irc" not in self.conf:
-            state.append("irc")
-        if "owners" not in self.conf["irc"]:
-            state.append("irc:owners")
-        if "connection" not in self.conf["irc"]:
-            state.append("irc:connection")
-        if "channels" not in self.conf["irc"]:
-            state.append("irc:channels")
-        if not self.conf["irc"]["channels"]:
-            state.append("irc:channels=empty")
-        if "modules" not in self.conf["irc"]:
-            state.append("irc:modules")
-        if "load" not in self.conf["irc"]["modules"]:
-            state.append("irc:modules:load")
-        if not self.conf["irc"]["modules"]["load"]:
-            state.append("irc:modules:load=empty")
-        if "global_prefix" not in self.conf["irc"]["modules"]:
-            state.append("irc:modules:global_prefix")
-        if "channel_prefix" not in self.conf["irc"]["modules"]:
-            state.append("irc:modules:channel_prefix")
-        if "blacklist" not in self.conf["irc"]["modules"]:
-            state.append("irc:modules:blacklist")
-        if "whitelist" not in self.conf["irc"]["modules"]:
-            state.append("irc:modules:whitelist")
-        if "user_acl" not in self.conf["irc"]:
-            state.append("irc:user_acl")
-
-        return state
-
     def get_sys_log_level(self):
         try:
             return self.conf["sys"]["log_level"]

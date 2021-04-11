@@ -21,32 +21,62 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 
-dispatch = {
-    "sys": lambda c: c.update({"sys": {}}),
-    "sys:log_level": lambda c: c["sys"].update({"log_level": "info"}),
-    "irc": lambda c: c.update({"irc": {}}),
-    "irc:owners": irc_owners,
-    "irc:connection": irc_connection,
-    "irc:channels": lambda c: c["irc"].update({"channels": {}}),
-    "irc:channels=empty": irc_channels,
-    "irc:modules": lambda c: c["irc"].update({"modules": {}}),
-    "irc:modules:load": lambda c: c["irc"]["modules"].update({"load": []}),
-    "irc:modules:load=empty": irc_modules_load_empty,
-    "irc:modules:global_prefix": irc_modules_global_prefix,
-    "irc:modules:channel_prefix": lambda c: c["irc"]["modules"].update({
-        "channel_prefix": {}}),
-    "irc:modules:blacklist": lambda c: c["irc"]["modules"].update({
-        "blacklist": {}}),
-    "irc:modules:whitelist": lambda c: c["irc"]["modules"].update({
-        "whitelist": {}}),
-    "irc:user_acl": lambda c: c["irc"]["user_acl"].update([])
-}
+def verify(conf):
+    if "sys" not in conf:
+        return "sys"
+    if "log_level" not in conf["sys"]:
+        return "sys:log_level"
+    if "irc" not in conf:
+        return "irc"
+    if "owners" not in conf["irc"]:
+        return "irc:owners"
+    if "connection" not in conf["irc"]:
+        return "irc:connection"
+    if "channels" not in conf["irc"]:
+        return "irc:channels"
+    if "modules" not in conf["irc"]:
+        return "irc:modules"
+    if "load" not in conf["irc"]["modules"]:
+        return "irc:modules:load"
+    if "global_prefix" not in conf["irc"]["modules"]:
+        return "irc:modules:global_prefix"
+    if "channel_prefix" not in conf["irc"]["modules"]:
+        return "irc:modules:channel_prefix"
+    if "blacklist" not in conf["irc"]["modules"]:
+        return "irc:modules:blacklist"
+    if "whitelist" not in conf["irc"]["modules"]:
+        return "irc:modules:whitelist"
+    if "user_acl" not in conf["irc"]:
+        return "irc:user_acl"
+
+    return 0  # Verification passed
+
 
 def interactive_verify(conf):
-    for i in conf.verify():
-        dispatch[i](conf.conf)
+    dispatch = {
+        "sys": lambda c: c.update({"sys": {}}),
+        "sys:log_level": lambda c: c["sys"].update({"log_level": "info"}),
+        "irc": lambda c: c.update({"irc": {}}),
+        "irc:owners": irc_owners,
+        "irc:connection": irc_connection,
+        "irc:channels": irc_channels,
+        "irc:modules": lambda c: c["irc"].update({"modules": {}}),
+        "irc:modules:load": irc_modules_load,
+        "irc:modules:global_prefix": irc_modules_global_prefix,
+        "irc:modules:channel_prefix": lambda c: c["irc"]["modules"].update({
+            "channel_prefix": {}}),
+        "irc:modules:blacklist": lambda c: c["irc"]["modules"].update({
+            "blacklist": {}}),
+        "irc:modules:whitelist": lambda c: c["irc"]["modules"].update({
+            "whitelist": {}}),
+        "irc:user_acl": lambda c: c["irc"]["user_acl"].update([])
+    }
 
-    conf.save()
+    i = conf.verify()
+    while i != 0:
+        dispatch[i](conf.conf)
+        conf.save()
+        i = conf.verify()
 
 
 def irc_owners(c):
@@ -105,10 +135,10 @@ def irc_connection(c):
     m = "Authentication method (nickserv, sasl) [sasl]: "
     while (1):
         auth_method = input(m).replace(" ", "").lower()
-        if not authentication or authentication == "sasl":
-            authentication = "sasl"
+        if not auth_method or auth_method == "sasl":
+            auth_method = "sasl"
             break
-        elif authentication == "nickserv":
+        elif auth_method == "nickserv":
             break
         print("- Invalid authentication method.")
 
@@ -120,7 +150,7 @@ def irc_connection(c):
                                     "nickname": nickname,
                                     "username": username,
                                     "realname": realname,
-                                    "authentication": authentication,
+                                    "authentication": auth_method,
                                     "auth_password": auth_password}})
 
 
@@ -136,16 +166,21 @@ def irc_channels(c):
         password = input(pm)
         channel_d[channel] = password
 
+    if not self.conf["irc"]["channels"]:
+        return "irc:channels=empty"
+
+    c["irc"].update({"channels": {}})
     c["irc"]["channels"].update(channel_d)
 
 
-def irc_modules_load_empty(c):
+def irc_modules_load(c):
     m = """
 Module setup:
 No modules will be loaded. Edit the configuration file to load modules.
 Edit the section  "irc.modules.load"  with the modules you  want to use
 and restart the bot."""
     print(m)
+    c["irc"]["modules"].update({"load": []})
 
 
 def irc_modules_global_prefix(c):
