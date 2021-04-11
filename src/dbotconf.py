@@ -1,3 +1,25 @@
+# coding=utf-8
+
+# Utilities for working with the configuration file
+
+'''
+Copyright (C) 2021 drastik.org
+
+This file is part of drastikbot.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 only.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+'''
+
 import json
 
 
@@ -5,11 +27,17 @@ class Configuration:
     """
     The Config class provides easy reading and writing to the
     bot's configuration file.
-    conf_dir : should be the configuration directory.
+    path : should be a pathlib.Path to the configuration file.
     """
-    def __init__(self, confdir):
-        self.path = f"{confdir}/config.json"
-        self.conf = None
+    def __init__(self, path):
+        self.path = path
+        self.conf = {}
+
+        # Check if the config file exists
+        if not path.is_file():
+            self.save()  # Create the file
+            return
+
         self.load()  # Load the configuration into self.conf
 
     def load(self):
@@ -19,6 +47,53 @@ class Configuration:
     def save(self):
         with open(self.path, "w") as f:
             json.dump(self.conf, f, indent=4)
+
+    def verify(self):
+        state = []
+        if "sys" not in self.conf:
+            state.append("sys")
+        if "log_level" not in self.conf["sys"]:
+            state.append("sys:log_level")
+        if "irc" not in self.conf:
+            state.append("irc")
+        if "owners" not in self.conf["irc"]:
+            state.append("irc:owners")
+        if "connection" not in self.conf["irc"]:
+            state.append("irc:connection")
+        if "channels" not in self.conf["irc"]:
+            state.append("irc:channels")
+        if not self.conf["irc"]["channels"]:
+            state.append("irc:channels=empty")
+        if "modules" not in self.conf["irc"]:
+            state.append("irc:modules")
+        if "load" not in self.conf["irc"]["modules"]:
+            state.append("irc:modules:load")
+        if not self.conf["irc"]["modules"]["load"]:
+            state.append("irc:modules:load=empty")
+        if "global_prefix" not in self.conf["irc"]["modules"]:
+            state.append("irc:modules:global_prefix")
+        if "channel_prefix" not in self.conf["irc"]["modules"]:
+            state.append("irc:modules:channel_prefix")
+        if "blacklist" not in self.conf["irc"]["modules"]:
+            state.append("irc:modules:blacklist")
+        if "whitelist" not in self.conf["irc"]["modules"]:
+            state.append("irc:modules:whitelist")
+        if "user_acl" not in self.conf["irc"]:
+            state.append("irc:user_acl")
+
+        return state
+
+    def get_sys_log_level(self):
+        try:
+            return self.conf["sys"]["log_level"]
+        except KeyError:
+            return "info"
+
+    def get_sys_log_dir(self):
+        try:
+            return self.conf["sys"]["log_dir"]
+        except KeyError:
+            return None
 
     def get_owners(self):
         return self.conf["irc"]["owners"]
