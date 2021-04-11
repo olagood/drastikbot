@@ -208,7 +208,7 @@ class Configuration:
         wl = self.get_module_whitelist(module)
         if not bl and not wl:  # Check both for None and []
             return True
-        if channel not in bl and channel in wl:
+        if channel not in bl and (not wl or channel in wl):
             return True
         return False
 
