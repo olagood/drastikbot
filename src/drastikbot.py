@@ -26,13 +26,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import sys
-import signal
 import argparse
 import traceback
 from pathlib import Path
 
 import constants
-from toolbox import config_check
+import conf_setup
+from dbotconf import Configuration
 from dbot_tools import Logger
 from irc.worker import Main
 
@@ -67,15 +67,15 @@ def ensure_dir_exists(path):
 
 def cli_arg_state():
     desc = f"{constants.progname} {constants.version} ({constants.codename})"
-    parser = argparse.ArgumentParser(descripion=desc)
-    parser.add_argument("-d", "--dir", nargs="?", type=str,
-                        default=constants.directory,
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("-c", "--confdir", nargs="?", type=str,
+                        default=constants.botdir,
                         help="Specify the configuration directory")
     parser.add_argument("-d", "--dev", action="store_true",
                         help="Start the bot in development mode")
     args = parser.parse_args()
 
-    botdir = constants.get_directory_path(args.dir)
+    botdir = constants.get_directory_path(args.confdir)
     devmode = args.dev
 
     ensure_dir_exists(botdir)
