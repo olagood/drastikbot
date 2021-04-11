@@ -114,7 +114,6 @@ if __name__ == "__main__":
     state = cli_arg_state()
     main = Main(state)
     try:
-        signal.signal(signal.SIGINT, main.sigint_hdl)
         main.main()
     except Exception as e:
         logger = state["runlog"]
