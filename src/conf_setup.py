@@ -69,14 +69,15 @@ def interactive_verify(conf):
             "blacklist": {}}),
         "irc:modules:whitelist": lambda c: c["irc"]["modules"].update({
             "whitelist": {}}),
-        "irc:user_acl": lambda c: c["irc"]["user_acl"].update([])
+        "irc:user_acl": lambda c: c["irc"].update({"user_acl": []})
     }
 
-    i = conf.verify()
+    i = verify(conf.conf)
     while i != 0:
         dispatch[i](conf.conf)
-        conf.save()
-        i = conf.verify()
+        i = verify(conf.conf)
+
+    conf.save()
 
 
 def irc_owners(c):
@@ -165,9 +166,6 @@ def irc_channels(c):
             break
         password = input(pm)
         channel_d[channel] = password
-
-    if not self.conf["irc"]["channels"]:
-        return "irc:channels=empty"
 
     c["irc"].update({"channels": {}})
     c["irc"]["channels"].update(channel_d)
