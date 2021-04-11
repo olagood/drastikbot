@@ -7,7 +7,7 @@
 # file and calls the main bot functions.
 
 '''
-Copyright (C) 2017-2019 drastik.org
+Copyright (C) 2017-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -31,12 +31,10 @@ import argparse
 import traceback
 from pathlib import Path
 
+import constants
 from toolbox import config_check
 from dbot_tools import Logger
 from irc.worker import Main
-
-# Get the project's root directory
-proj_path = os.path.dirname(os.path.abspath(__file__))
 
 
 def print_banner():
@@ -55,48 +53,69 @@ def print_banner():
         print(i)
 
 
-def parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--conf', nargs='?',
-                        type=str, help='Specify the configuration directory')
+def ensure_dir_exists(path):
+    if path.is_dir():
+        return  # The configuration directory exists
+    try:
+        path.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        m = ("[Error] Unable to make the configuration directory at"
+             f" '{path}'. A file with that name already exists.")
+        print(m, file=sys.stderr)
+        sys.exit(1)
+
+
+def cli_arg_state():
+    desc = f"{constants.progname} {constants.version} ({constants.codename})"
+    parser = argparse.ArgumentParser(descripion=desc)
+    parser.add_argument("-d", "--dir", nargs="?", type=str,
+                        default=constants.directory,
+                        help="Specify the configuration directory")
+    parser.add_argument("-d", "--dev", action="store_true",
+                        help="Start the bot in development mode")
     args = parser.parse_args()
 
-    # Check if a configuration directory is given or use the default one
-    # "~/.drastikbot"
-    if args.conf:
-        path = Path(args.conf)
-        if not path.is_dir():
-            try:
-                path.mkdir(parents=True, exist_ok=False)
-            except FileExistsError:
-                sys.exit("[Error] Making configuration directory at"
-                         f" '{args.conf}' failed. Another file with that name"
-                         " already exists.")
-        conf_dir = str(path.expanduser().resolve())
-    else:
-        path = Path('~/.drastikbot').expanduser()
-        if not path.is_dir():
-            try:
-                path.mkdir(parents=True, exist_ok=False)
-            except FileExistsError:
-                sys.exit("[Error] Making configuration directory at"
-                         " '~/.drastikbot' failed. Another file with that name"
-                         " already exists.")
-        conf_dir = str(path)
+    botdir = constants.get_directory_path(args.dir)
+    devmode = args.dev
 
-    config_check.config_check(conf_dir)
-    logger = Logger(conf_dir, 'runtime.log')
-    logger.info('\nStarting up...\n')
-    return conf_dir
+    ensure_dir_exists(botdir)
+
+    conf = Configuration(constants.get_config_path(botdir))
+    # Verify the config file and prompt the user for input
+    conf_setup.interactive_verify(conf)
+
+    loglevel = conf.get_sys_log_level()
+    if devmode:
+        loglevel = "debug"
+
+    logdir = conf.get_sys_log_dir()
+    if logdir is None:
+        logdir = constants.get_log_dir(botdir)
+
+    runlog = Logger(loglevel, botdir, "runtime.log")
+
+    # Get the project's root directory
+    program_path = os.path.dirname(os.path.abspath(__file__))
+
+    state = {
+        "program_path": program_path,
+        "botdir": botdir,
+        "conf": conf,
+        "devmode": devmode,
+        "loglevel": loglevel,
+        "logdir": logdir,
+        "runlog": runlog
+    }
+    return state
 
 
 if __name__ == "__main__":
     print_banner()
-    conf_dir = parser()
-    c = Main(conf_dir, proj_path)
+    state = cli_arg_state()
+    main = Main(state)
     try:
-        signal.signal(signal.SIGINT, c.sigint_hdl)
-        c.main()
+        signal.signal(signal.SIGINT, main.sigint_hdl)
+        main.main()
     except Exception as e:
-        logger = Logger(conf_dir, 'runtime.log')
-        logger.debug(f'Exception on startIRC(): {e} {traceback.print_exc()}')
+        logger = state["runlog"]
+        logger.debug(f'Startup error:\n {e} {traceback.print_exc()}')
