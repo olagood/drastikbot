@@ -6,7 +6,7 @@
 #        - Logger  : Logger functions
 
 '''
-Copyright (C) 2018-2019 drastik.org
+Copyright (C) 2018-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -60,61 +60,33 @@ def p_truncate(text, whole, percent, ellipsis=False):
 class Logger:
     """
     This class provides minimal logging functionality.
-    It supports log rotation and two logging states: INFO, DEBUG.
-    - Todo:
-    - add gzip compression of rotated logs
-    - IF PROBLEMS OCCURE: make it thread safe
+    It supports two logging modes: INFO, DEBUG.
     """
-    def __init__(self, conf_dir, log_filename):
-        config = Configuration(conf_dir).conf
-        try:
-            log_dir = config['sys']['log_dir']
-        except KeyError:
-            log_dir = conf_dir + '/logs/'
-            self.log_dir = log_dir
+
+    def __init__(self, level, logdir, logname):
+        self.log_mode = level
+        self.log_dir = logdir
+
         if not Path(log_dir).exists():
             Path(log_dir).mkdir(parents=True, exist_ok=True)
+
         self.log_file = Path('{}/{}'.format(log_dir, log_filename))
-        try:
-            self.log_mode = config['sys']['log_level'].lower()
-        except KeyError:
-            self.log_mode = 'info'
-        try:
-            self.log_size = config['sys']['log_size'].lower()
-        except KeyError:
-            self.log_size = 5 * 1000000
 
-    def log_rotate(self):
-        current_log_size = self.log_file.stat().st_size
-        if current_log_size > self.log_size:
-            while True:
-                n = 1
-                np = (self.log_dir + self.log_file.stem +
-                      str(n) + "".join(self.log_file.suffixes))
-                rotate_p = Path(np)
-                if rotate_p.exists():
-                    n += 1
-                else:
-                    self.log_file.rename(rotate_p)
-                    break
-
-    def log_write(self, msg, line, debug=False):
-        with open(str(self.log_file), 'a+') as log:
+    def log_write(self, msg, line):
+        with open(self.log_file, 'a+') as log:
             log.write(line + '\n')
-        if not debug:
-            print(msg)
-        else:
-            print(line)
-        self.log_rotate()
 
     def info(self, msg):
         if self.log_mode == 'info' or self.log_mode == 'debug':
-            line = '{} - INFO - {}'.format(
-                datetime.datetime.now(), msg)
+            dt = datetime.datetime.now()
+            line = f"{dt} - INFO - {msg}"
+            print(msg)
             self.log_write(msg, line)
 
     def debug(self, msg):
         if self.log_mode == 'debug':
             caller_name = sys._getframe(1).f_code.co_name
-            line = f'{datetime.datetime.now()} - DEBUG - {caller_name} - {msg}'
-            self.log_write(msg, line, debug=True)
+            dt = datetime.datetime.now()
+            line = f"{dt} - DEBUG - {caller_name} - {msg}"
+            print(line)
+            self.log_write(msg, line)
