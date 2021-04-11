@@ -199,16 +199,14 @@ class Configuration:
         It returns True if one of the following conditions are met:
         - There is no blacklist and no whitelist set for this module.
         - The channel is not in a blacklist and it is in a whitelist.
-        Otherwise it returns false.
+        Otherwise it returns False.
 
         @returns True If the module can be applied in this channel
                  False Otherwise
         """
         bl = self.get_module_blacklist(module)
         wl = self.get_module_whitelist(module)
-        if not bl and not wl:  # Check both for None and []
-            return True
-        if channel not in bl and (not wl or channel in wl):
+        if (not bl or channel not in bl) and (not wl or channel in wl):
             return True
         return False
 
