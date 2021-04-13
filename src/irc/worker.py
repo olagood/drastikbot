@@ -29,202 +29,23 @@ import base64
 import signal
 import traceback
 
-from irc.message import Message
+import irc.message
+import irc.modules
 from dbot_tools import Logger
 from irc.irc import Drastikbot
-from irc.modules import Modules
-
-
-class Register:
-    def __init__(self, irc):
-        self.irc = irc
-        self.msg = ''
-        # self.cap is used to indicate the status IRCv3 capability
-        # negotiation.
-        # Values:
-        # -1: Check for IRCv3 | 0: Ended or none
-        #  1: In progress | 2: Send CAP END
-        self.cap = -1
-        self.nickserv_ghost_status = 0  # 0: None | 1: In progress
-        self.nickserv_recover_status = 0  # 0: None | 1: In progress
-        self.motd = False
-
-    # --- IRCv3 --- #
-    def cap_ls(self):
-        self.irc.ircv3_serv = True
-        self.cap = 1
-        self.irc.ircv3_cap_ls = re.search(r"(?:CAP .* LS :)(.*)",
-                                          self.msg.msg).group(1).split(' ')
-        cap_req = [i for i in self.irc.ircv3_cap_ls
-                   if i in self.irc.ircv3_cap_req]
-
-        # If the server doesnt support any capabilities we support end the
-        # registration now
-        if cap_req == []:
-            self.cap_end()
-            return
-
-        self.irc.send(('CAP', 'REQ', ':{}'.format(' '.join(cap_req))))
-
-    def cap_ack(self):
-        cap_ack = re.search(r"(?:CAP .* ACK :)(.*)", self.msg.msg).group(1)
-        self.irc.ircv3_cap_ack = cap_ack.split()
-
-    def cap_end(self):
-        self.irc.send(('CAP', 'END'))
-        self.cap = 0
-
-    # -- SASL #
-    def sasl_succ(self):
-        self.irc.sasl_state = 1
-        self.cap = 2
-
-    def sasl_fail(self):
-        self.irc.sasl_state = 2
-        self.cap = 2
-
-    def sasl_init(self):
-        if not self.irc.conf.is_auth_method("sasl") \
-           or 'sasl' not in self.irc.ircv3_cap_ack:
-            self.sasl_fail()
-        else:
-            self.irc.send(('AUTHENTICATE', 'PLAIN'))
-            self.irc.sasl_state = 3
-
-    def sasl_auth(self):
-        user = self.irc.conf.get_user()
-        password = self.irc.conf.get_auth_password()
-        m = f'{user}\0{user}\0{password}'
-        m = m.encode("utf-8")
-        m = base64.b64encode(m)
-        self.irc.send(('AUTHENTICATE', m))
-
-    # --- NickServ --- #
-    def nickserv_identify(self):
-        nickname = self.irc.nickname
-        password = self.irc.auth_password
-        self.irc.privmsg('NickServ', f'IDENTIFY {nickname} {password}')
-
-    def nickserv_recover(self):
-        nickname = self.irc.nickname
-        password = self.irc.auth_password
-        if self.irc.authentication and self.irc.auth_password \
-           and self.nickserv_recover_status == 0:
-            self.irc.privmsg('NickServ', f'RECOVER {nickname} {password}')
-            self.nickserv_recover_status = 1
-        elif "You have regained control" in self.msg.msg:
-            self.nickserv_recover_status = 0
-            self.irc.curr_nickname = nickname
-            self.irc.alt_nickname = False
-
-    def nickserv_ghost(self):
-        nickname = self.irc.nickname
-        password = self.irc.auth_password
-        if self.irc.authentication and self.irc.auth_password \
-           and self.nickserv_ghost_status == 0:
-            self.irc.privmsg('NickServ', f'GHOST {nickname} {password}')
-            self.nickserv_ghost_status = 1
-        elif "has been ghosted" in self.msg.params \
-             and self.nickserv_ghost_status == 1:
-            self.irc.nick(nickname)
-            self.nickserv_identify()
-            self.nickserv_ghost_status = 0
-            self.irc.curr_nickname = nickname
-            self.irc.alt_nickname = False
-        elif "/msg NickServ help" in self.msg.msg or \
-             "/msg NickServ HELP" in self.msg.msg:
-            self.nickserv_ghost_status = 0
-            self.nickserv_recover()
-        elif "is not a registered nickname" in self.msg.msg:
-            self.nickserv_ghost_status = 0
-
-    # --- Error Handlers --- #
-    def err_nicnameinuse_433(self):
-        self.irc.curr_nickname = self.irc.curr_nickname + '_'
-        self.irc.nick(self.irc.curr_nickname)
-        self.irc.alt_nickname = True
-
-    # --- Registration Handlers --- #
-    def reg_init(self):
-        nickname = self.irc.conf.get_nickname()
-        user = self.irc.conf.get_user()
-        realname = self.irc.conf.get_realname()
-        self.irc.send(('CAP', 'LS', self.irc.ircv3_ver))
-        self.irc.send(('USER', user, '0', '*', f':{realname}'))
-        self.irc.curr_nickname = nickname
-        self.irc.nick(nickname)
-
-    def ircv3_fn_caller(self):
-        a = len(self.msg.cmd_ls)
-        cmd_ls = self.msg.cmd_ls
-        if a > 2 and 'CAP LS' == f'{cmd_ls[0]} {cmd_ls[2]}':
-            self.cap_ls()
-        elif a > 2 and 'CAP ACK' == f'{cmd_ls[0]} {cmd_ls[2]}':
-            self.cap_ack()
-        # ERR_NICKNAMEINUSE
-        if '433' in self.msg.cmd_ls[0]:
-            self.err_nicnameinuse_433()
-        # SASL
-        if self.irc.ircv3_cap_ack and self.irc.sasl_state == 0:
-            self.sasl_init()
-        elif 'AUTHENTICATE' in self.msg.msg:  # AUTHENTICATE +
-            self.sasl_auth()
-        elif '903' == cmd_ls[0]:  # SASL authentication successful
-            self.sasl_succ()
-        elif '904' == cmd_ls[0]:  # SASL authentication failed
-            self.sasl_fail()
-        # End capability negotiation.
-        if self.cap == 2:
-            self.cap_end()
-
-    def reg_fn_caller(self):
-        if '433' in self.msg.cmd_ls[0]:  # ERR_NICKNAMEINUSE
-            self.err_nicnameinuse_433()
-        if '376' in self.msg.cmd_ls[0]:  # RPL_ENDOFMOTD
-            self.motd = True
-
-        if self.motd and self.irc.alt_nickname \
-           and self.irc.authentication and self.nickserv_ghost_status == 0\
-           and self.nickserv_recover_status == 0:
-            self.nickserv_ghost()
-        if self.motd and self.irc.conf.is_auth_method("nickserv"):
-            self.nickserv_identify()
-        if self.nickserv_ghost_status == 1:
-            self.nickserv_ghost()
-        if self.nickserv_recover_status == 1:
-            self.nickserv_recover()
-        if self.motd and not self.nickserv_ghost_status == 1 \
-           and not self.nickserv_recover_status == 1:
-            self.irc.conn_state = 2
-            self.irc.join(self.irc.conf.get_channels())
-
-    def reg_main(self, msg):
-        self.msg = msg
-        if self.cap != 0:
-            # Check for IRCv3 methods
-            self.ircv3_fn_caller()
-        else:
-            # Run normal IRC registration methods
-            self.reg_fn_caller()
 
 
 class Main:
     def __init__(self, state, mod=False):
         self.state = state
 
-        signal.signal(signal.SIGINT, self.main)
+        signal.signal(signal.SIGINT, self.sigint_hdl)
 
         self.log = state["runlog"]
         self.irc = Drastikbot(state)
 
-        if mod:
-            self.mod = mod
-            mod.irc = self.irc  # Update the irc variable
-        else:
-            self.mod = Modules(state, self.irc)
-
-        self.reg = Register(self.irc)
-
+        irc.modules.init(state)
+        self.module_state = irc.modules.mod_import(state)
 
     def conn_lost(self):
         if self.irc.sigint:
@@ -235,41 +56,41 @@ class Main:
         self.irc.conn_state = 0
         self.irc.reconn_wait()  # Wait before next reconnection attempt.
         self.log.info('> Reconnecting...')
-        # Reload the class
-        self.__init__(self.state, mod=self.mod)
+        self.irc = Drastikbot(self.state)
         self.main(reconnect=True)  # Restart the bot
 
     def recieve(self):
+        data = b""
         while self.irc.conn_state != 0:
             try:
-                msg_raw = self.irc.irc_socket.recv(4096)
+                data += self.irc.irc_socket.recv(4096)
             except Exception:
                 self.log.debug('<!!!> Exception on recieve().'
                                f'\n{traceback.format_exc()}')
                 self.conn_lost()
                 break
 
-            msg_raw_ls = msg_raw.split(b'\r\n')
-            for line in msg_raw_ls:
-                if line:
-                    msg = Message(line)
-                    if self.irc.conn_state == 2:
-                        self.service(msg)
-                    if 'PING' == msg.cmd_ls[0]:
-                        self.irc.send(('PONG', msg.params))
-                    elif self.irc.conn_state == 1:
-                        self.service(msg)
-                        self.reg.reg_main(msg)
-
-            if len(msg_raw) == 0:
+            if not data:
                 self.log.info('<!> recieve() exiting...')
                 self.conn_lost()
                 break
 
-    def service(self, msg):
-        msg.channel_prep(self.irc)
-        self.thread_make(self.mod.mod_main,
-                         (self.irc, msg, msg.params.split(' ')[0]))
+            while True:
+                data_l = data.split(b'\n', 1)
+                if len(data_l) == 1:
+                    break
+
+                data = data_l[1]
+                line = data_l[0]
+                message = irc.message.parse(line)
+
+                # Auto reload modules in developer mode to make programming easier
+                if self.state["devmode"]:
+                    self.module_state = irc.modules.reload_all(self.module_state)
+                self.thread_make(irc.modules.dispatch,
+                                 (self.module_state, self.state,
+                                  self.irc, message))
+
 
     def thread_make(self, target, args='', daemon=False):
         thread = Thread(target=target, args=(args))
@@ -289,14 +110,10 @@ class Main:
 
     def main(self, reconnect=False):
         self.irc.connect()
-        if not reconnect:
-            self.mod.mod_import()
+
         if self.irc.sigint:
             return
         self.irc.conn_state = 1
         self.thread_make(self.recieve)
-        reg_t = self.thread_make(self.reg.reg_init)
-        reg_t.join()  # wait until registered
-        self.log.info(f"\nNickname: {self.irc.curr_nickname}")
-        if not reconnect:
-            self.thread_make(self.mod.mod_startup, (self.irc,))
+        self.thread_make(irc.modules.startup, (self.module_state,
+                                               self.state, self.irc))
