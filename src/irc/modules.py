@@ -30,7 +30,6 @@ import collections
 import sqlite3
 
 from dbot_tools import Logger
-from toolbox import user_acl
 
 
 # Immutables. They are to be initialized by init once.
@@ -232,6 +231,7 @@ def bot_command_data(s, bot, irc, message, bot_command):
 
 
 def bot_command_dispatch(s, bot, irc, message, bot_command):
+    conf = bot["conf"]
     data = bot_command_data(s, bot, irc, message, bot_command)
     nickname = data.prefix["nickname"]
     user = data.prefix["user"]
@@ -242,13 +242,11 @@ def bot_command_dispatch(s, bot, irc, message, bot_command):
         module_name = s["modules_d"][module_object].stem
 
         # Is the channel blacklisted/whitelisted ?
-        if not bot["conf"].check_channel_module_access(module_name, channel):
+        if not conf.check_channel_module_access(module_name, channel):
             continue
 
         # Is the user restricted by the user access list ?
-        uacl = bot["conf"].get_user_access_list()
-        if user_acl.is_banned(uacl, channel, nickname,
-                              user, host, module_name):
+        if conf.is_banned_user_access_list(data.prefix, channel, module_name):
             continue
 
         try:
@@ -284,6 +282,7 @@ def irc_command_data(s, bot, message):
 
 
 def irc_command_dispatch(s, bot, irc, message):
+    conf = bot["conf"]
     data = irc_command_data(s, bot, message)
 
     for module_object in s["irc_command_d"].get(data.command, []):
@@ -291,19 +290,14 @@ def irc_command_dispatch(s, bot, irc, message):
 
         if data.command == "PRIVMSG":
             channel = data.params[0]
-            nickname = data.prefix["nickname"]
-            user = data.prefix["user"]
-            host = data.prefix["host"]
 
             # Is the channel blacklisted/whitelisted ?
-            if not bot["conf"].check_channel_module_access(
-                    module_name, channel):
+            if not conf.check_channel_module_access(module_name, channel):
                 continue
 
             # Is the user restricted by the user access list ?
-            uacl = bot["conf"].get_user_access_list()
-            if user_acl.is_banned(uacl, channel, nickname,
-                                  user, host, module_name):
+            if conf.is_banned_user_access_list(
+                    data.prefix, channel, module_name):
                 continue
 
         try:
