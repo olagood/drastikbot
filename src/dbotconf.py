@@ -21,7 +21,99 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import json
+import datetime
 
+
+# ====================================================================
+# Helper functions
+# ====================================================================
+
+def _is_ascii_cl(x, y):
+    """Is x an ascii caseless match for y ?"""
+    return x.lower() == y.lower()
+
+
+# ====================================================================
+# User ACL: Helper functions to parser user_acl masks
+# ====================================================================
+
+def _m_user(m, user):
+    m = m.lower()
+    user = user.lower()
+
+    if m == user or m == "*":
+        return True
+    elif "*" == m[0] and m[1:] == user[-len(m[1:]):]:
+        return True
+    else:
+        return False
+
+
+def _m_host(m, hostmask):
+    if m == hostmask or m == "*":
+        return True
+    elif "*" == m[0] and m[1:] == hostmask[-len(m[1:]):]:
+        return True
+    elif "*" == m[-1] and m[:-1] == hostmask[:len(m[:-1])]:
+        return True
+    else:
+        return False
+
+
+def _check_time(timestamp):
+    if timestamp == 0:
+        return True
+    now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    if timestamp > now:
+        return True
+    else:
+        return False
+
+
+def _check_module(m, module):
+    if m == '*':
+        return True
+    ls = m.split(',')
+    if module in ls:
+        return True
+    else:
+        return False
+
+
+def _is_banned(mask, channel, nick, user, hostmask, module):
+    """Check if a user is banned from using the bot.
+
+    :param mask: A ``mask'' string in the following format:
+                 channel nickname!username@hostmask time modules
+    A * wildcard is allowed in front of the username and the hostmask.
+    """
+    tmp = mask.split(" ", 1)
+    c = tmp[0]
+    tmp = tmp[1].split("!", 1)
+    n = tmp[0]
+    tmp = tmp[1].split("@", 1)
+    u = tmp[0]
+    tmp = tmp[1].split(" ", 1)
+    h = tmp[0]
+    tmp = tmp[1].split(" ", 1)
+    t = int(tmp[0])
+    m = tmp[1]
+
+    # Bans are not case sensitive
+    if (_is_ascii_cl(c, channel) or c == '*') \
+       and (_is_ascii_cl(n, nick) or n == '*') \
+       and _m_user(u, user) \
+       and _check_time(t) \
+       and _m_host(h, hostmask) \
+       and _check_module(m, module):
+        return True
+    else:
+        return False
+
+
+# ====================================================================
+# Configuration: config file read/write interface
+# ====================================================================
 
 class Configuration:
     """
@@ -87,7 +179,7 @@ class Configuration:
     def is_auth_method(self, method):
         # Plain ASCII comparison is enough.
         # The bot will never use non-ASCII string values.
-        return self.get_auth_method().lower() == method.lower()
+        return _is_ascii_cl(self.get_auth_method(), method)
 
     def get_auth_password(self):
         return self.conf["irc"]["connection"]["auth_password"]
@@ -250,3 +342,36 @@ class Configuration:
     def del_user_access_list(self, index):
         del self.conf["irc"]["user_acl"][index]
         self.save()
+
+    def is_banned_user_access_list(self, prefix, channel, module):
+        uacl = self.get_user_access_list()
+
+        if uacl is None:
+            return False
+
+        nick = prefix["nickname"]
+        user = prefix["user"]
+        hostmask = prefix["host"]
+
+        for i in uacl:
+            if _is_banned(i, channel, nick, user, hostmask, module):
+                return True
+        return False
+
+    def is_expired_user_access_list(self, mask):
+        tmp = mask.split(" ", 1)
+        tmp = tmp[1].split("!", 1)
+        tmp = tmp[1].split("@", 1)
+        tmp = tmp[1].split(" ", 1)
+        tmp = tmp[1].split(" ", 1)
+        t = int(tmp[0])
+
+        if t == 0:
+            return False
+        now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+        if t < now:
+            return True
+        else:
+            return False
+
+
