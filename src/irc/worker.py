@@ -64,6 +64,8 @@ class Main:
         while self.irc.conn_state != 0:
             try:
                 data += self.irc.irc_socket.recv(4096)
+            except BlockingIOError:
+                continue  # No data on non blocking socket.
             except Exception:
                 self.log.debug('<!!!> Exception on recieve().'
                                f'\n{traceback.format_exc()}')
