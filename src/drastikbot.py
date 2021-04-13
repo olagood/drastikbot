@@ -92,7 +92,7 @@ def cli_arg_state():
     if logdir is None:
         logdir = constants.get_log_dir(botdir)
 
-    runlog = Logger(loglevel, botdir, "runtime.log")
+    runlog = Logger(loglevel, Path(logdir, "runtime.log"))
 
     # Get the project's root directory
     program_path = os.path.dirname(os.path.abspath(__file__))

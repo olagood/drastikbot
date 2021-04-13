@@ -63,14 +63,13 @@ class Logger:
     It supports two logging modes: INFO, DEBUG.
     """
 
-    def __init__(self, level, logdir, logname):
+    def __init__(self, level, path):
         self.log_mode = level
-        self.log_dir = logdir
 
-        if not Path(logdir).exists():
-            Path(logdir).mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.log_file = Path('{}/{}'.format(logdir, logname))
+        self.log_file = path
 
     def log_write(self, msg, line):
         with open(self.log_file, 'a+') as log:
