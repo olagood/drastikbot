@@ -1,12 +1,10 @@
 # coding=utf-8
 
 # Methods for importing, reloading and calling drastikbot modules.
-# Features for modules such as Variable Memory, SQLite databases,
-# channel blacklist and whitelist checks and user access list checks
-# are defined here.
+# Features for modules such as Variable Memory, SQLite databases.
 
 '''
-Copyright (C) 2017-2019 drastik.org
+Copyright (C) 2017-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -24,14 +22,328 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import sys
-from pathlib import Path, PurePath
+from pathlib import Path
 import importlib
 import traceback
 import inspect
+import collections
 import sqlite3
+
 from dbot_tools import Logger
-from dbotconf import Configuration
 from toolbox import user_acl
+
+
+# Immutables. They are to be initialized by init once.
+log = None
+var_memory = None
+db_memory = None
+db_disk = None
+
+
+def init(bot):
+    global log
+    log = Logger(bot["loglevel"], Path(bot["logdir"], "modules.log"))
+
+    global var_memory
+    var_memory = VariableMemory()
+
+    global db_memory
+    db_memory = sqlite3.connect(':memory:', check_same_thread=False)
+
+    global db_disk
+    path = f"{bot['botdir']}/drastikbot.db"
+    db_disk = sqlite3.connect(path, check_same_thread=False)
+
+
+def _new_module_state():
+    return {
+        "modules_d": {},  # {module_object: module_path}
+        "startup_l": [],  # [module_object]
+        "irc_command_d": {},  # {irc_command: [module_object]}
+        "bot_command_d": {}  # {bot_command: [module_object]}
+    }
+
+
+def candidates_from_path(bot, path, force=False):
+    """Search a directory for modules to import. Only the modules whose
+    names are found in the configuration file are returned.
+
+    :param bot_state: A dictionary that holds runtime data.
+    :param path: The directory to search.
+    :param force: If True return every module without checking the config.
+    :returns: An iterator of paths to modules that should be imported.
+    """
+    load = bot["conf"].get_modules_load()
+
+    # Check if the module directory exists under the configuration
+    # directory and make it otherwise.
+    if not path.is_dir():
+        path.mkdir(exist_ok=True)
+        log.info(f"- Module directory created at: {path}")
+
+    # Check if the module directory is in the Python sys.path
+    if str(path) not in sys.path:
+        sys.path.append(str(path))
+
+    # Return .py files (whose names are in `load' if `force' is False)
+    return filter(lambda x: x.is_file() and x.suffix == ".py"
+                  and (force or x.stem in load),
+                  path.iterdir())
+
+
+def read_module_class(s, path, module_object):
+    s["modules_d"][module_object] = path
+
+    # Module(): Check if the module has such a class
+    try:
+        module_class = module_object.Module()
+    except AttributeError:
+        log.debug(f"Module() class not found for: ``{path.stem}''")
+        return s
+
+    # Module(): Handle bot_commands
+    for bot_c in getattr(module_class, "bot_commands", []):
+        s["bot_command_d"].setdefault(bot_c, []).append(module_object)
+
+    # Deprecated 2.2
+    # Module(): Handle commands (legacy usage of bot_commands)
+    for bot_c in getattr(module_class, "commands", []):
+        s["bot_command_d"].setdefault(bot_c, []).append(module_object)
+
+    # Module(): Handle irc_commands
+    for irc_c in getattr(module_class, "irc_commands", []):
+        s["irc_command_d"].setdefault(irc_c, []).append(module_object)
+
+    # Module(): Handle startup
+    if getattr(module_class, "startup", False):
+        s["startup_l"].append(module_object)
+
+    return s
+
+
+def import_from_list(modules, log_import=True, state=None):
+    """Imports every module in ``modules'' and returns the mod_state"""
+    if state is None:
+        s = _new_module_state()
+    else:
+        s = state
+
+    importlib.invalidate_caches()
+
+    for path in modules:
+        try:
+            module_object = importlib.import_module(str(path.stem))
+        except Exception:
+            tc = traceback.format_exc()
+            log.debug(f"- Module load exception:``{path}''\n{tc}")
+            continue
+
+        read_module_class(s, path, module_object)
+
+        if log_import:
+            log.info(f"| Loaded module: {path.stem}")
+
+    return s
+
+
+def reload_all(s):
+    old_modules_d = s["modules_d"]
+    s = _new_module_state()
+
+    for module_object in old_modules_d:
+        importlib.reload(module_object)
+        path = old_modules_d[module_object]
+        read_module_class(s, path, module_object)
+
+    return s
+
+
+def mod_import(bot):
+    # System modules: Required core modules
+    path = Path(bot["program_path"], "irc/modules")
+    import_l = candidates_from_path(bot, path, force=True)
+    s = import_from_list(import_l, log_import=bot["devmode"])
+
+    # User modules: Third party modules provided by the user
+    path = Path(bot["botdir"], "modules")
+    import_l = candidates_from_path(bot, path)
+    s = import_from_list(import_l, state=s)
+
+    return s
+
+
+BotCommandData = collections.namedtuple(
+    "BotCommandData", [
+        "cmd", "nickname", "username", "hostname", "msg_raw", "msg_full",
+        "msg", "msg_nocmd", "msg_ls", "cmd_prefix", "msgtype", "db",
+        "bot_command", "message", "prefix", "command", "params", "is_pm",
+        "channel", "db_memory", "db_disk", "varset", "varget", "modules_state",
+        "bot", "mod_import", "mod_reload"
+    ])
+
+
+def bot_command_data(s, bot, irc, message, bot_command):
+    message, prefix, command, params = message
+    is_pm = params[0] != irc.curr_nickname
+
+    msg_nocmd = params[-1].split(" ", 1)
+    if len(msg_nocmd) == 2:
+        msg_nocmd = msg_nocmd[1]
+    else:
+        msg_nocmd = msg_nocmd[0]
+
+    return BotCommandData(
+        cmd=bot_command[1:],  # Deprecated 2.2
+        nickname=prefix["nickname"],  # Deprecated 2.2
+        username=prefix["user"],  # Deprecated 2.2
+        hostname=prefix["host"],  # Deprecated 2.2
+        msg_raw=message,  # Deprecated 2.2
+        msg_full=message.decode("utf-8", errors="ignore"),  # Deprecated 2.2
+        msg=params[-1],  # Deprecated 2.2
+        msg_nocmd=msg_nocmd,  # Deprecated 2.2
+        msg_ls=msg_nocmd.split(" "),  # Deprecated 2.2
+        # msg_prefix has been removed in 2.2 without a deprecation period
+        # msg_params has been removed in 2.2 without a deprecation period
+        # cmd_ls has been removed in 2.2 without a deprecation period
+        cmd_prefix=bot_command[:1],  # Deprecated 2.2
+        msgtype=command,  # Deprecated 2.2
+        db=[db_memory, db_disk],  # Deprecated 2.2
+        # modules has been removed in 2.2 without a deprecation period
+        # command_dict has been removed in 2.2 without a deprecation period
+        # auto_list has been removed in 2.2 without a deprecation period
+        # blacklist has been removed in 2.2 without a deprecation period
+        # whitelist has been removed in 2.2 without a deprecation period
+        bot_command=bot_command,
+        message=message,
+        prefix=prefix,
+        command=command,
+        params=params,
+        is_pm=is_pm,
+        channel=params[0] if is_pm else prefix["nickname"],
+        db_memory=db_memory,
+        db_disk=db_disk,
+        varset=var_memory.varset,
+        varget=var_memory.varget,
+        modules_state=s,
+        bot=bot,
+        mod_import=mod_import,
+        mod_reload=reload_all
+    )
+
+
+def bot_command_dispatch(s, bot, irc, message, bot_command):
+    data = bot_command_data(s, bot, irc, message, bot_command)
+    nickname = data.prefix["nickname"]
+    user = data.prefix["user"]
+    host = data.prefix["host"]
+    channel = data.channel
+
+    for module_object in s["bot_command_d"].get(data.cmd, []):
+        module_name = s["modules_d"][module_object].stem
+
+        # Is the channel blacklisted/whitelisted ?
+        if not bot["conf"].check_channel_module_access(module_name, channel):
+            continue
+
+        # Is the user restricted by the user access list ?
+        uacl = bot["conf"].get_user_access_list()
+        if user_acl.is_banned(uacl, channel, nickname,
+                              user, host, module_name):
+            continue
+
+        try:
+            module_object.main(data, irc)
+        except Exception:
+            tc = traceback.format_exc()
+            log.debug(f"Module ``{module_name}'' error:\n{tc}")
+
+
+IrcCommandData = collections.namedtuple(
+    "IrcCommandData", [
+        "message", "prefix", "command", "params",
+        "db_memory", "db_disk", "module", "mod_import", "mod_reload",
+        "bot", "varget", "varset"
+    ])
+
+
+def irc_command_data(s, bot, message):
+    return IrcCommandData(
+        message=message[0],
+        prefix=message[1],
+        command=message[2],
+        params=message[3],
+        db_memory=db_memory,
+        db_disk=db_disk,
+        varget=var_memory.varget,
+        varset=var_memory.varset,
+        module=s,
+        bot=bot,
+        mod_import=mod_import,
+        mod_reload=reload_all
+    )
+
+
+def irc_command_dispatch(s, bot, irc, message):
+    data = irc_command_data(s, bot, message)
+
+    for module_object in s["irc_command_d"].get(data.command, []):
+        module_name = s["modules_d"][module_object].stem
+
+        if data.command == "PRIVMSG":
+            channel = data.params[0]
+            nickname = data.prefix["nickname"]
+            user = data.prefix["user"]
+            host = data.prefix["host"]
+
+            # Is the channel blacklisted/whitelisted ?
+            if not bot["conf"].check_channel_module_access(
+                    module_name, channel):
+                continue
+
+            # Is the user restricted by the user access list ?
+            uacl = bot["conf"].get_user_access_list()
+            if user_acl.is_banned(uacl, channel, nickname,
+                                  user, host, module_name):
+                continue
+
+        try:
+            module_object.main(data, irc)
+        except Exception:
+            tc = traceback.format_exc()
+            log.debug(f"Module ``{module_name}'' error:\n{tc}")
+
+
+def dispatch(s, bot, irc, message):
+    raw, prefix, command, params = message
+
+    irc_command_dispatch(s, bot, irc, message)
+
+    if command == "PRIVMSG":
+        channel = params[0]
+        bot_command = params[-1].split(" ", 1)[0]
+        bot_command_prefix = bot_command[:1]
+        if bot["conf"].get_channel_prefix(channel) == bot_command_prefix:
+            bot_command_dispatch(s, bot, irc, message, bot_command)
+
+
+def startup(s, bot, irc):
+    '''
+    Run modules configured with the "self.startup = True" option.
+    The bot doesn't manage the modules after they get started.
+    This could be problematic for modules that are blocking and so they
+    should periodically check the bot's connection bot_state (e.g. by checking
+    the value of "irc.conn_bot_state") and handle a possible disconnect.
+    The bot's whitelist/blacklist is not being taken into account.
+    '''
+    data = irc_command_data(s, bot, ("", "", "__STARTUP", ""))
+
+    for module_object in s["startup_l"]:
+        try:
+            module_object.main(data, irc)
+        except Exception:
+            module_name = s["modules_d"][module_object]
+            tc = traceback.format_exc()
+            log.debug(f"- Module ``{module_name}'' error:\n{tc}")
 
 
 class VariableMemory:
@@ -87,262 +399,3 @@ class VariableMemory:
                 raise AttributeError(f"'{name}' has no value set. "
                                      "Try passing a default value"
                                      " or set 'raw=False'")
-
-
-class Info:
-    """
-    This class is used for setting up message and runtime variables by
-    Modules.info_prep() and is passed to the modules.
-    """
-    __slots__ = ['cmd', 'channel', 'nickname', 'username', 'hostname', 'msg',
-                 'msg_nocmd', 'cmd_prefix', 'msgtype', 'is_pm', 'msg_raw',
-                 'db', 'msg_ls', 'msg_prefix', 'cmd_ls', 'msg_full', 'modules',
-                 'command_dict', 'auto_list', 'mod_import', 'blacklist',
-                 'whitelist', 'msg_params', 'varget', 'varset']
-
-
-class Modules:
-    def __init__(self, state, irc):
-        self.state = state
-        self.conf = state["conf"]
-        self.irc = irc
-        self.log = Logger(state["loglevel"], state["logdir"], "modules.log")
-        self.varmem = VariableMemory()
-
-        self.modules = {}   # {Module Name : Module Callable}
-
-        self.msgtype_dict = {}  # {msgtype: [module1, ...]}
-        self.auto_list = []  # [module1, ...]
-        self.startup_list = []  # [module1, ...]
-        self.command_dict = {}  # {command1: module}
-        # Databases #
-        self.dbmem = sqlite3.connect(':memory:', check_same_thread=False)
-        self.dbdisk = sqlite3.connect(f"{state['botdir']}/drastikbot.db",
-                                      check_same_thread=False)
-        self.mod_settings = {}  # {Module Name : {setting : value}}
-
-    def mod_imp_prep(self, module_dir, auto=False):
-        '''
-        Search a directory for modules, check if they are listed in the config
-        file and return a list of the modules.
-        If 'auto' is True load all the modules without checking the config
-        file (used for core modules needed for the bot's operation).
-        '''
-        path = Path(module_dir)
-        load = self.conf.get_modules_load()
-        if not path.is_dir():
-            # Check if the module directory exists under the
-            # configuration directory and make it otherwise.
-            path.mkdir(exist_ok=True)
-            self.log.info(' - Module directory created at: {}'
-                          .format(module_dir))
-        # Append the module directory in the sys.path variable
-        sys.path.append(str(module_dir))
-        files = [f for f in path.iterdir() if Path(
-            PurePath(module_dir).joinpath(f)).is_file()]
-        modimp_list = []
-        for f in files:
-            suffix = PurePath(f).suffix
-            prefix = PurePath(f).stem
-            if suffix == '.py':
-                if auto:
-                    modimp_list.append(prefix)
-                elif prefix in load:
-                    modimp_list.append(prefix)
-        return modimp_list
-
-    def mod_import(self):
-        """
-        Import modules specified in the configuration file.
-        Check for values specified in the Module() class of every module and
-        set the variables declared in __init__() for later use.
-        """
-        self.log.info('\n> Loading Modules:\n')
-
-        importlib.invalidate_caches()
-
-        modimp_list = []
-        module_dir = Path(self.state["botdir"], 'modules')
-        modimp_list.extend(self.mod_imp_prep(module_dir))
-        module_dir = self.state["program_path"] + '/irc/modules'
-        modimp_list.extend(self.mod_imp_prep(module_dir, auto=True))
-
-        # Empty variabled from previous import:
-        self.modules = {}  # {Module Name : Module Callable}
-        self.msgtype_dict = {}  # {msgtype: [module1, ...]}
-        self.auto_list = []  # [module1, ...]
-        self.startup_list = []  # [module1, ...]
-        self.command_dict = {}  # {command1: module}
-
-        for m in modimp_list:
-            try:
-                modimp = importlib.import_module(m)
-                # Dictionary with the module name and it's callable
-                self.modules[m] = modimp
-                # Read the module's "Module()" class to
-                # get the required runtime information,
-                # such as: commands, sysmode
-                try:
-                    mod = modimp.Module()
-                except AttributeError:
-                    self.log.info(f'<!> Module "{m}" does not have a Module() '
-                                  'class and was not loaded.')
-
-                commands = [c for c in getattr(mod, 'commands', [])]
-                for c in commands:
-                    if c in self.command_dict:
-                        self.log.info(f'<!> Command "{c}" is already used by '
-                                      f'"{self.command_dict[c]}.py", but is '
-                                      f'also requested by "{m}.py".')
-                        sys.exit(1)
-                    self.command_dict[c] = m
-                msgtypes = [m.upper() for m in getattr(
-                    mod, 'msgtypes', ['PRIVMSG'])]
-                for i in msgtypes:
-                    self.msgtype_dict.setdefault(i, []).append(m)
-                if getattr(mod, 'auto', False):
-                    self.auto_list.append(m)
-                if getattr(mod, 'startup', False):
-                    self.startup_list.append(m)
-
-                self.log.info('> Loaded module: {}'.format(m))
-            except Exception:
-                self.log.debug(f'<!> Module "{m}" failed to load: '
-                               f'\n{traceback.format_exc()}')
-
-    def mod_reload(self):
-        '''
-        Reload the already imported modules.
-        WARNING: Changes in the Module() class are not reloaded using this
-        method. Reimport the modules (with self.mod_import()) to do that.
-        '''
-        for value in self.modules.values():
-            importlib.reload(value)
-
-    def info_prep(self, msg):
-        """
-        Set values in the Info() class and return that class.
-
-        --Notes:
-        i.cmd :: The module command without the prefix.
-                 Values are set by mod_main() before calling the module.
-                 In "Auto" modules this will remain as an empty string.
-        i.msg :: Instead of setting the msg.msg value, we set msg.params,
-                 to achieve a better looking API. Instead "i.msg_full" is
-                 set to msg.msg
-        i.msg_params :: It is the same as i.msg, we use this to match the
-                        RFC's terminology.
-        """
-        i = Info()
-        i.cmd = ''
-        i.channel = msg.channel
-        i.nickname = msg.nickname
-        i.username = msg.username
-        i.hostname = msg.hostname
-        i.msg_raw = msg.msg_raw
-        i.msg_full = msg.msg
-        i.msg = msg.params
-        i.msg_nocmd = msg.params_nocmd
-        i.msg_ls = msg.msg_ls
-        i.msg_prefix = msg.prefix
-        i.msg_params = msg.params
-        i.cmd_ls = msg.cmd_ls
-        i.cmd_prefix = msg.chn_prefix
-        i.msgtype = msg.msgtype
-        i.is_pm = i.channel == i.nickname
-        i.db = [self.dbmem, self.dbdisk]
-        i.varset = self.varmem.varset
-        i.varget = self.varmem.varget
-        i.modules = self.modules
-        i.command_dict = self.command_dict
-        i.auto_list = self.auto_list
-        i.mod_import = self.mod_import
-        return i
-
-    def mod_main(self, irc, msg, command):
-        def cmd_modules():
-            try:
-                module = self.command_dict[command[1:]]
-            except KeyError:
-                return
-            if not self.irc.conf.check_channel_module_access(module, i.channel):
-                return
-            uacl = self.irc.conf.get_user_access_list()
-            if user_acl.is_banned(uacl, i.channel, i.nickname,
-                                  i.username, i.hostname, module):
-                return
-            if module in md:
-                # We set i.cmd to the command's name.
-                i.cmd = command[1:]
-                try:
-                    self.modules[module].main(*args)
-                except Exception:
-                    self.log.debug(f'<!> Module "{module}" exitted with error:'
-                                   f'\n{traceback.format_exc()}')
-
-        self.mod_reload()  # Reload the bot's modules.
-        i = self.info_prep(msg)
-        args = (i, irc)
-
-        try:
-            md = self.msgtype_dict[msg.msgtype]
-        except KeyError:
-            # No modules use this message type, return.
-            return
-
-        if command[:1] == i.cmd_prefix:
-            cmd_modules()
-
-        for m in list(set(self.auto_list).intersection(md)):
-            if not self.irc.conf.check_channel_module_access(m, i.channel):
-                continue
-            uacl = self.irc.conf.get_user_access_list()
-            if user_acl.is_banned(uacl, i.channel, i.nickname,
-                                  i.username, i.hostname, m):
-                continue  # Skip this module for this user
-            try:
-                # We set i.cmd to False to indicate that it's an auto call.
-                i.cmd = ""
-                self.modules[m].main(*args)
-            except Exception:
-                self.log.debug(f'<!> Module "{m}" exitted with error: '
-                               f'\n{traceback.format_exc()}')
-
-    def mod_startup(self, irc):
-        '''
-        Run modules configured with the "self.startup = True" option.
-        The bot doesn't manage the modules after they get started.
-        This could be problematic for modules that are blocking and so they
-        should periodically check the bot's connection state (e.g. by checking
-        the value of "irc.conn_state") and handle a possible disconnect.
-        The bot's whitelist/blacklist is not being taken into account.
-        The "msgtype" and "cmd" passed to the modules is "STARTUP".
-        The "info" tuple is perfectly matched by blank strings.
-        '''
-        def info_prep_startup():
-            '''
-            Special use of the Info class that includes only the variables
-            available at startup.
-            '''
-            i = Info()
-            i.cmd = ''
-            i.msgtype = "STARTUP"  # Indicate that this is a startup call.
-            i.db = [self.dbmem, self.dbdisk]
-            i.varget = self.varmem.varget
-            i.varset = self.varmem.varset
-            i.modules = self.modules
-            i.mod_import = self.mod_import
-            return i
-
-        self.mod_reload()  # Reload the bot's modules.
-        i = info_prep_startup()
-        args = (i, irc)
-
-        for m in self.startup_list:
-            try:
-                # We set i.cmd to False to indicate that it's an auto call.
-                i.cmd = ""
-                self.modules[m].main(*args)
-            except Exception:
-                self.log.debug(f'<!> Module "{m}" exitted with error: '
-                               f'\n{traceback.format_exc()}')
