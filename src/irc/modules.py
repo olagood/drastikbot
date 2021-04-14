@@ -39,6 +39,10 @@ db_memory = None
 db_disk = None
 
 
+# ====================================================================
+# Initialization
+# ====================================================================
+
 def init(bot):
     global log
     log = Logger(bot["loglevel"], Path(bot["logdir"], "modules.log"))
@@ -54,6 +58,10 @@ def init(bot):
     db_disk = sqlite3.connect(path, check_same_thread=False)
 
 
+# ====================================================================
+# Module state
+# ====================================================================
+
 def _new_module_state():
     return {
         "modules_d": {},  # {module_object: module_path}
@@ -62,6 +70,16 @@ def _new_module_state():
         "bot_command_d": {}  # {bot_command: [module_object]}
     }
 
+
+def get_object_from_name(s, module_name):
+    for module_object, module_path in i.mod["modules_d"].items():
+        if module_path.stem == module_name:
+            return module_object
+
+
+# ====================================================================
+# Module importing, loading and reloading functions
+# ====================================================================
 
 def candidates_from_path(bot, path, force=False):
     """Search a directory for modules to import. Only the modules whose
@@ -171,12 +189,16 @@ def mod_import(bot):
     return s
 
 
+# ====================================================================
+# Message dispatchers
+# ====================================================================
+
 BotCommandData = collections.namedtuple(
     "BotCommandData", [
         "cmd", "nickname", "username", "hostname", "msg_raw", "msg_full",
         "msg", "msg_nocmd", "msg_ls", "cmd_prefix", "msgtype", "db",
         "bot_command", "message", "prefix", "command", "params", "is_pm",
-        "channel", "db_memory", "db_disk", "varset", "varget", "modules_state",
+        "channel", "db_memory", "db_disk", "varset", "varget", "mod",
         "bot", "mod_import", "mod_reload"
     ])
 
@@ -223,7 +245,7 @@ def bot_command_data(s, bot, irc, message, bot_command):
         db_disk=db_disk,
         varset=var_memory.varset,
         varget=var_memory.varget,
-        modules_state=s,
+        mod=s,
         bot=bot,
         mod_import=mod_import,
         mod_reload=reload_all
@@ -259,7 +281,7 @@ def bot_command_dispatch(s, bot, irc, message, bot_command):
 IrcCommandData = collections.namedtuple(
     "IrcCommandData", [
         "message", "prefix", "command", "params",
-        "db_memory", "db_disk", "module", "mod_import", "mod_reload",
+        "db_memory", "db_disk", "mod", "mod_import", "mod_reload",
         "bot", "varget", "varset"
     ])
 
@@ -274,7 +296,7 @@ def irc_command_data(s, bot, message):
         db_disk=db_disk,
         varget=var_memory.varget,
         varset=var_memory.varset,
-        module=s,
+        mod=s,
         bot=bot,
         mod_import=mod_import,
         mod_reload=reload_all
@@ -339,6 +361,10 @@ def startup(s, bot, irc):
             tc = traceback.format_exc()
             log.debug(f"- Module ``{module_name}'' error:\n{tc}")
 
+
+# ====================================================================
+# VariableMemory: maintain state between module calls
+# ====================================================================
 
 class VariableMemory:
     def varset(self, name, value):
