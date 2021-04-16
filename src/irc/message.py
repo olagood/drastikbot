@@ -21,6 +21,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
+# ====================================================================
+# Base Parser
+# ====================================================================
+
 def parse(message):
     # Remove CRLF
     m = message.replace(b"\r", b"")
@@ -39,6 +43,8 @@ def parse(message):
     params = []
     if len(m) == 2:
         params = parse_params(m[1])
+
+    params = api_dispatch.get(command, params)
 
     return message, prefix, command, params
 
@@ -70,3 +76,33 @@ def parse_params(params):
 
     # Edge case: 14 middle and no space trailing
     return params.split(" ", 14)
+
+
+# ====================================================================
+# Command specific parser
+# ====================================================================
+
+def privmsg(prefix, params):
+    is_pm = params[0] != irc.curr_nickname
+    receiver = params[0] if is_pm else prefix["nickname"]
+    return {
+        "params": params,
+        "is_pm": is_pm,
+        "receiver": receiver
+    }
+
+
+def notice(prefix, params):
+    is_pm = params[0] != irc.curr_nickname
+    receiver = params[0] if is_pm else prefix["nickname"]
+    return {
+        "params": params,
+        "is_pm": is_pm,
+        "receiver": receiver
+    }
+
+
+api_dispatch = {
+    "PRIVMSG": privmsg,
+    "NOTICE": notice
+}
