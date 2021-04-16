@@ -36,7 +36,7 @@ def verify(conf):
         return "irc:channels"
     if "modules" not in conf["irc"]:
         return "irc:modules"
-    if "paths" not in cong["irc"]["modules"]:
+    if "paths" not in conf["irc"]["modules"]:
         return "irc:modules:paths"
     if "load" not in conf["irc"]["modules"]:
         return "irc:modules:load"
