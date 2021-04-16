@@ -186,9 +186,10 @@ def mod_import(bot):
     s = import_from_list(import_l, log_import=bot["devmode"])
 
     # User modules: Third party modules provided by the user
-    path = Path(bot["botdir"], "modules")
-    import_l = candidates_from_path(bot, path)
-    s = import_from_list(import_l, state=s)
+    for path in bot["conf"].get_modules_paths():
+        path = Path(path)
+        import_l = candidates_from_path(bot, path)
+        s = import_from_list(import_l, state=s)
 
     return s
 
