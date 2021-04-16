@@ -36,6 +36,8 @@ def verify(conf):
         return "irc:channels"
     if "modules" not in conf["irc"]:
         return "irc:modules"
+    if "paths" not in cong["irc"]["modules"]:
+        return "irc:modules:paths"
     if "load" not in conf["irc"]["modules"]:
         return "irc:modules:load"
     if "global_prefix" not in conf["irc"]["modules"]:
@@ -61,6 +63,7 @@ def interactive_verify(conf):
         "irc:connection": irc_connection,
         "irc:channels": irc_channels,
         "irc:modules": lambda c: c["irc"].update({"modules": {}}),
+        "irc:modules:paths": irc_modules_paths,
         "irc:modules:load": irc_modules_load,
         "irc:modules:global_prefix": irc_modules_global_prefix,
         "irc:modules:channel_prefix": lambda c: c["irc"]["modules"].update({
@@ -82,9 +85,9 @@ def interactive_verify(conf):
 
 def irc_owners(c):
     print("""
-Owner setup:
-Insert a comma seperated list of the bot owners' IRC nicknames.
-The nicknames must be registered with nickserv.""")
+[Owner setup]: Who owns this bot instance?
+  Insert a comma seperated list of IRC nicknames.
+  The nicknames must be registered with nickserv.""")
     o = input("> ")
     o.replace(" ", "")
     ls = o.split(",")
@@ -92,7 +95,7 @@ The nicknames must be registered with nickserv.""")
 
 
 def irc_connection(c):
-    print("\nIRC connection setup:")
+    print("\n[IRC connection setup]:")
     network = input("Hostname [chat.freenode.net]: ").replace(" ", "")
     if not network:
         network = "chat.freenode.net"
@@ -156,7 +159,7 @@ def irc_connection(c):
 
 
 def irc_channels(c):
-    print("\nChannel setup:")
+    print("\n[Channel setup]:  Insert the channels to join.")
     channel_d = {}
     cm = "Channel name (with #) (RET to exit): "
     pm = "Channel password (RET if there is none): "
@@ -171,12 +174,21 @@ def irc_channels(c):
     c["irc"]["channels"].update(channel_d)
 
 
+def irc_modules_paths(c):
+    m = """
+[Module setup]:  No modules will be loaded.
+  Edit the  configuration  file  to  set the  paths to the
+  module directories. Edit the section "irc.modules.paths"
+  with the needed paths and restart the bot."""
+    print(m)
+    c["irc"]["modules"].update({"paths": []})
+
+
 def irc_modules_load(c):
     m = """
-Module setup:
-No modules will be loaded. Edit the configuration file to load modules.
-Edit the section  "irc.modules.load"  with the modules you  want to use
-and restart the bot."""
+  Edit the configuration  file to select which modules to
+  to load. Edit the section  "irc.modules.load"  with the
+  modules you want to use and restart the bot."""
     print(m)
     c["irc"]["modules"].update({"load": []})
 
