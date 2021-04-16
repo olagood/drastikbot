@@ -28,6 +28,7 @@ import re
 import base64
 import signal
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 
 import irc.message
 import irc.modules
@@ -41,11 +42,13 @@ class Main:
 
         signal.signal(signal.SIGINT, self.sigint_hdl)
 
+        self.tpool = ThreadPoolExecutor()
+
         self.log = state["runlog"]
         self.irc = Drastikbot(state)
 
         irc.modules.init(state)
-        self.module_state = irc.modules.mod_import(state)
+        self.mod_state = irc.modules.mod_import(state)
 
     def conn_lost(self):
         if self.irc.sigint:
@@ -88,11 +91,11 @@ class Main:
 
                 # Auto reload modules in developer mode to make programming easier
                 if self.state["devmode"]:
-                    self.module_state = irc.modules.reload_all(self.module_state)
-                self.thread_make(irc.modules.dispatch,
-                                 (self.module_state, self.state,
-                                  self.irc, message))
+                    self.mod_state = irc.modules.reload_all(self.mod_state)
 
+                self.tpool.submit(irc.modules.dispatch,
+                                  self.mod_state, self.state, self.irc,
+                                  message)
 
     def thread_make(self, target, args='', daemon=False):
         thread = Thread(target=target, args=(args))
@@ -117,5 +120,5 @@ class Main:
             return
         self.irc.conn_state = 1
         self.thread_make(self.recieve)
-        self.thread_make(irc.modules.startup, (self.module_state,
-                                               self.state, self.irc))
+        self.thread_make(irc.modules.startup,
+                         (self.mod_state, self.state, self.irc))
