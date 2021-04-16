@@ -38,19 +38,18 @@ from irc.worker import Main
 
 
 def print_banner():
-    banner = [
-        "---------------------------------------------------------------",
-        " Drastikbot 2.2",
-        "    An IRC bot focused on its extensibility and personalization",
-        "",
-        " License: GNU AGPLv3 only",
-        " Drastikbot 2.2 comes WITHOUT ANY WARRANTY",
-        ""
-        " Welcome!",
-        "---------------------------------------------------------------"
-    ]
-    for i in banner:
-        print(i)
+    print("""
+---------------------------------------------------------------
+ Drastikbot 2.2
+    An IRC bot focused on its extensibility and personalization
+
+ License: GNU AGPLv3 only
+ Drastikbot 2.2 comes WITHOUT ANY WARRANTY
+
+ Welcome!
+---------------------------------------------------------------
+""")
+
 
 
 def ensure_dir_exists(path):
