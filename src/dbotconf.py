@@ -213,6 +213,9 @@ class Configuration:
     def get_modules_load(self):
         return self.conf["irc"]["modules"]["load"]
 
+    def get_modules_paths(self):
+        return self.conf["irc"]["modules"]["paths"]
+
     def get_module_blacklist(self, module):
         try:
             return self.conf["irc"]["modules"]["blacklist"][module]
