@@ -22,17 +22,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import sys
-from pathlib import Path
 import importlib
 import traceback
 import inspect
 import collections
 import sqlite3
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 from dbot_tools import Logger
 
 
-# Immutables. They are to be initialized by init once.
+# Constants. Initialized with the module.
+irc_command_tpool = ThreadPoolExecutor()
+
+# Variables. They are to be initialized by init once.
 log = None
 var_memory = None
 db_memory = None
@@ -193,54 +197,33 @@ def mod_import(bot):
 # Message dispatchers
 # ====================================================================
 
-BotCommandData = collections.namedtuple(
-    "BotCommandData", [
-        "cmd", "nickname", "username", "hostname", "msg_raw", "msg_full",
-        "msg", "msg_nocmd", "msg_ls", "cmd_prefix", "msgtype", "db",
-        "bot_command", "message", "prefix", "command", "params", "is_pm",
-        "channel", "db_memory", "db_disk", "varset", "varget", "mod",
-        "bot", "mod_import", "mod_reload"
-    ])
+CommandData = collections.namedtuple(
+    "CommandData", [
+        "message", "prefix", "command", "params",
+        "db_memory", "db_disk", "mod", "mod_import", "mod_reload",
+        "bot", "varget", "varset"
+    ]
+)
 
 
 def bot_command_data(s, bot, irc, message, bot_command):
     message, prefix, command, params = message
-    is_pm = params[0] != irc.curr_nickname
 
-    msg_nocmd = params[-1].split(" ", 1)
-    if len(msg_nocmd) == 2:
-        msg_nocmd = msg_nocmd[1]
-    else:
-        msg_nocmd = msg_nocmd[0]
+    bot_command_prefix = bot_command[:1]
+    bot_command = bot_command[1:]
 
-    return BotCommandData(
-        cmd=bot_command[1:],  # Deprecated 2.2
-        nickname=prefix["nickname"],  # Deprecated 2.2
-        username=prefix["user"],  # Deprecated 2.2
-        hostname=prefix["host"],  # Deprecated 2.2
-        msg_raw=message,  # Deprecated 2.2
-        msg_full=message.decode("utf-8", errors="ignore"),  # Deprecated 2.2
-        msg=params[-1],  # Deprecated 2.2
-        msg_nocmd=msg_nocmd,  # Deprecated 2.2
-        msg_ls=msg_nocmd.split(" "),  # Deprecated 2.2
-        # msg_prefix has been removed in 2.2 without a deprecation period
-        # msg_params has been removed in 2.2 without a deprecation period
-        # cmd_ls has been removed in 2.2 without a deprecation period
-        cmd_prefix=bot_command[:1],  # Deprecated 2.2
-        msgtype=command,  # Deprecated 2.2
-        db=[db_memory, db_disk],  # Deprecated 2.2
-        # modules has been removed in 2.2 without a deprecation period
-        # command_dict has been removed in 2.2 without a deprecation period
-        # auto_list has been removed in 2.2 without a deprecation period
-        # blacklist has been removed in 2.2 without a deprecation period
-        # whitelist has been removed in 2.2 without a deprecation period
-        bot_command=bot_command,
+    message_no_bot_command = params[-1].split(" ", 1)
+
+    # bot_commands are PRIVMSG only. Extend the params dict's API.
+    params.update({"bot_command": bot_command,
+                   "bot_command_prefix": bot_command_prefix,
+                   "message_no_bot_command": message_no_bot_command})
+
+    return CommandData(
         message=message,
         prefix=prefix,
         command=command,
         params=params,
-        is_pm=is_pm,
-        channel=params[0] if is_pm else prefix["nickname"],
         db_memory=db_memory,
         db_disk=db_disk,
         varset=var_memory.varset,
@@ -278,16 +261,8 @@ def bot_command_dispatch(s, bot, irc, message, bot_command):
             log.debug(f"Module ``{module_name}'' error:\n{tc}")
 
 
-IrcCommandData = collections.namedtuple(
-    "IrcCommandData", [
-        "message", "prefix", "command", "params",
-        "db_memory", "db_disk", "mod", "mod_import", "mod_reload",
-        "bot", "varget", "varset"
-    ])
-
-
 def irc_command_data(s, bot, message):
-    return IrcCommandData(
+    return CommandData(
         message=message[0],
         prefix=message[1],
         command=message[2],
@@ -323,7 +298,7 @@ def irc_command_dispatch(s, bot, irc, message):
                 continue
 
         try:
-            module_object.main(data, irc)
+            irc_command_tpool.submit(module_object.main, data, irc)
         except Exception:
             tc = traceback.format_exc()
             log.debug(f"Module ``{module_name}'' error:\n{tc}")
@@ -332,7 +307,7 @@ def irc_command_dispatch(s, bot, irc, message):
 def dispatch(s, bot, irc, message):
     raw, prefix, command, params = message
 
-    irc_command_dispatch(s, bot, irc, message)
+    irc_command_tpool.submit(irc_command_dispatch, s, bot, irc, message)
 
     if command == "PRIVMSG":
         channel = params[0]
