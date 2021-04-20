@@ -6,7 +6,7 @@
 # and the management of its features.
 
 '''
-Copyright (C) 2017-2019 drastik.org
+Copyright (C) 2017-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -31,11 +31,59 @@ import traceback
 import dbot_tools
 
 
+class Output:
+    def __init__(self, irc):
+        self.irc = irc
+
+    def away(self, msg=''):
+        self.irc.send('AWAY', msg)
+
+    def invite(self, nick, channel):
+        self.irc.send(('INVITE', nick, channel))
+
+    def join(self, channels):
+        for key, value in channels.items():
+            self.irc.send(('JOIN', key, value))
+
+    def kick(self, channel, nick, msg):
+        self.irc.send(('KICK', channel, nick, msg))
+
+    def names(self, channels, server=""):
+        m = ["NAMES"]
+        m.extend(channels)
+        m.append(server)
+        self.irc.send(m)
+
+    def nick(self, nick):
+        self.irc.send(('NICK', nick))
+
+    def notice(self, target, msg):
+        self.irc.send(('NOTICE', target), msg)
+
+    def part(self, channel, msg):
+        self.irc.send(('PART', channel), msg)
+
+    def pong(self, server1, server2=""):
+        if server2:
+            self.irc.send(("PONG", server1, server2))
+        else:
+            self.irc.send(("PONG", server1))
+
+    def privmsg(self, target, msg):
+        self.irc.send(('PRIVMSG', target), msg)
+
+    def quit(self, msg):
+        self.irc.send(('QUIT',), msg)
+
+
 class Drastikbot():
     def __init__(self, state):
         self.state = state
         self.conf = state["conf"]
         self.log = state["runlog"]
+
+        # IRC command messages
+        self.out = Output(self)
 
         self.reconnect_delay = 0
         self.sigint = 0
@@ -50,16 +98,23 @@ class Drastikbot():
         self.alt_nickname = False      # Alternative nickname used
         self.connected_ip = ''         # IP of the connected IRC server
         self.connected_host = ''       # Hostname of the connected server
-        self.ircv3_ver = '301'         # IRCv3 version supported by the bot
-        self.ircv3_cap_req = ('sasl')  # IRCv3 Bot Capability Requirements
-        self.ircv3_serv = False  # True: IRCv3 supported by the server
-        self.ircv3_cap_ls = []   # IRCv3 Server Capabilities
-        self.ircv3_cap_ack = []  # IRCv3 Server Capabilities Acknowledged
+        self.ircv3_enabled = []  # IRCv3 Server Capabilities Acknowledged
         # sasl_state = 0: Not tried | 1: Success | 2: Fail | 3: In progress
         self.sasl_state = 0
         self.conn_state = 0  # 0: Disconnected | 1: Registering | 2: Connected
         self.namesdict = {}  # {channel1: [["=","S"], {nick1: ["@"], , ...}]}
         self.botmodes = []   # [x,I] Modes returned after registration
+
+        # Connection Status
+        self.channels = {}  # {"channel": ["mode"]}
+        self.names = {}  # {"channel": [{"name": ["mode"]}]}
+
+        # IRC server features
+        # They are to be set by RPL_ISUPPORT or other mechanisms.
+        # The default values provided are set for max compatibility.
+        self.prefix = {"q": "~", "a": "&", "o": "@", "h": "%", "v": "+"}
+        self.chantypes = {"#", "&", "+", "!"}  # RFC 2812 channel types
+        self.chanmodes = {"A": [], "B": [], "C": [], "D": []}
 
     def set_msg_len(self, nick_ls):
         u = f"{nick_ls[0]}!{nick_ls[1]}@{nick_ls[2]} "
@@ -107,38 +162,6 @@ class Drastikbot():
             tr = self.msg_len - 2 - irc_msg_len - remainder
             t = text.encode('utf-8')[tr:]
             self.send(cmds, t)
-
-    def privmsg(self, target, msg):
-        self.send(('PRIVMSG', target), msg)
-
-    def notice(self, target, msg):
-        self.send(('NOTICE', target), msg)
-
-    def join(self, channels):
-        print("\n")
-        for key, value in channels.items():
-            self.send(('JOIN', key, value))
-            self.log.info(f"Joined {key}")
-
-    def part(self, channel, msg):
-        self.send(('PART', channel), msg)
-
-    def invite(self, nick, channel):  # untested
-        self.send(('INVITE', nick, channel))
-
-    def kick(self, channel, nick, msg):  # untested
-        self.send(('KICK', channel, nick, msg))
-
-    def nick(self, nick):
-        self.send(('NICK', '{}'.format(nick)))
-
-    def quit(self, msg=''):
-        if not msg:
-            msg = self.conf.get_quitmsg()
-        self.send(('QUIT',), msg)
-
-    def away(self, msg=''):
-        self.send('AWAY', msg)
 
     def reconn_wait(self):
         '''
