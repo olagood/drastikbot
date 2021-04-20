@@ -5,7 +5,7 @@
 # variables for use by the other modules.
 
 '''
-Copyright (C) 2018-2019 drastik.org
+Copyright (C) 2018-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -24,158 +24,108 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 class Module:
-    def __init__(self):
-        self.msgtypes = ['JOIN', 'QUIT', 'PART', 'MODE', '353',
-                         '324']
-        self.auto = True
+    irc_commands = ["353", "366", "JOIN", "MODE", "NICK", "PART", "QUIT"]
 
 
-def dict_prep(irc, msg):
-    '''
-    Prepare 'irc.var.namesdict'
-    This function inserts a new key with the channels name in
-    'irc.var.namesdict' for the other functions to use.
-    '''
-    # Verify that this is indeed a channel before adding it to 'namesdict'.
-    # This is so that we can avoid adding the users (or services) that send
-    # privmsges with to bot.
-    chan_prefix_ls = ['#', '&', '+', '!']
-    if msg.channel[0] not in chan_prefix_ls:
-        return
-
-    if msg.channel not in irc.var.namesdict:
-        irc.var.namesdict[msg.channel] = [[], {}]
-
-
-def _rpl_namreply_353(irc, msg):
-    dict_prep(irc, msg)
-    namesdict = irc.var.namesdict[msg.channel]
-    namesdict[0] = [msg.cmd_ls[2]]
-    modes = ['~', '&', '@', '%', '+']
-    for i in msg.msg_params.split():
-        if i[:1] in modes:
-            namesdict[1][i[1:]] = [i[:1]]
-        else:
-            namesdict[1][i] = []
-    irc.send(('MODE', msg.channel))  # Reply handled by rpl_channelmodeis
-
-
-def _rpl_channelmodeis_324(irc, msg):
-    '''Handle reply to: "MODE #channel" to save the channel modes'''
-    channel = msg.cmd_ls[2]
-    m = list(msg.cmd_ls[3][1:])
-    for idx, mode in reversed(list(enumerate(m))):
-        irc.var.namesdict[channel][0].append(mode)
-
-
-def _join(irc, msg):
-    try:
-        dict_prep(irc, msg)
-        irc.var.namesdict[msg.channel][1][msg.nickname] = []
-    except KeyError:
-        # This occures when first joining a channel for the first time.
-        # We take advantage of this to efficiently:
-        # Get the hostmask and call a function to calculate and set
-        # the irc.var.msg_len variable.
-        if msg.nickname == irc.var.curr_nickname:
-            nick_ls = (msg.nickname, msg.username, msg.hostname)
-            irc.var.bot_hostmask = msg.hostname
-            irc.set_msg_len(nick_ls)
-
-
-def _part(irc, msg):
-    try:
-        del irc.var.namesdict[msg.channel][1][msg.nickname]
-    except KeyError:
-        # This should not be needed now that @rpl_namreply()
-        # is fixed, but the exception will be monitored for
-        # possible future reoccurance, before it is removed.
-        irc.var.log.debug('KeyError @Events.irc_part(). Err: 01')
-
-
-def _quit(irc, msg):
-    for chan in irc.var.namesdict:
-        if msg.nickname in irc.var.namesdict[chan][1]:
-            del irc.var.namesdict[chan][1][msg.nickname]
-
-
-def _nick(irc, msg):
-    for chan in irc.var.namesdict:
-        try:
-            k = irc.var.namesdict[chan][1]
-            k[msg.params] = k.pop(msg.nickname)
-        except KeyError:
-            # This should not be needed now that @rpl_namreply()
-            # is fixed, but the exception will be monitored for
-            # possible future reoccurance, before it is removed.
-            irc.var.log.debug('KeyError @Events.irc_part(). Err: 01')
-
-
-def user_mode(irc, msg):
-    # MODE used on a user
-    m_dict = {'q': '~', 'a': '&', 'o': '@', 'h': '%', 'v': '+'}
-    channel = msg.cmd_ls[1]
-    m = msg.cmd_ls[2]    # '+ooo' or '-vvv'
-    modes = list(m[1:])  # [o,o,o,o]
-    if m[:1] == '+':  # Add (+) modes
-        for idx, mode in reversed(list(enumerate(modes))):
-            nick = msg.cmd_ls[3+idx]
-            try:
-                irc.var.namesdict[channel][1][nick].append(
-                    m_dict[mode])
-            except KeyError:
-                # This should not be needed now that @rpl_namreply()
-                # is fixed, but the exception will be monitored for
-                # possible future reoccurance, before it is removed.
-                irc.var.log.debug('KeyError @Events.irc_mode(). Err: 01')
-                irc.var.namesdict[channel][1].update({nick: modes[idx]})
-    elif m[:1] == '-':  # Remove (-) modes
-        for i, e in reversed(list(enumerate(modes))):
-            try:
-                irc.var.namesdict[channel][1][msg.cmd_ls[3+i]].remove(
-                    m_dict[modes[i]])
-            except Exception:
-                irc.var.log.debug('AttributeError @Events.irc_mode(). '
-                                  'Err: 02')
-                # Quick hack for to avoid crashes in cases where a mode
-                # doesnt use a nickname. (For instance setting +b on a
-                # hostmask). Should be properly handled, after this
-                # method gets broken into smaller parts.
-
-
-def channel_mode(irc, msg):
-    # MODE used on a channel
-    channel = msg.cmd_ls[1]
-    m = msg.cmd_ls[2]    # '+ooo' or '-vvv'
-    modes = list(m[1:])  # [o,o,o,o]
-    if m[:1] == '+':  # Add (+) modes
-        for idx, mode in reversed(list(enumerate(modes))):
-            irc.var.namesdict[channel][0].append(mode)
-    elif m[:1] == '-':  # Remove (-) modes
-        for idx, mode in reversed(list(enumerate(modes))):
-            irc.var.namesdict[channel][0].remove(mode)
-
-
-def _mode(irc, msg):
-    dict_prep(irc, msg)
-    if len(msg.cmd_ls) > 3:
-        user_mode(irc, msg)
-    elif msg.cmd_ls[1] == irc.var.curr_nickname:
-        # Set the bot's server modes.
-        irc.var.botmodes.extend(
-            list(msg.msg_ls[3].replace("+", "").replace(":", "")))
+def rpl_namreply_353(i, irc):
+    state = i.varget("names", defval={})
+    channel = i.msg.get_channel()
+    if channel not in state or state[channel] == "ended":
+        irc.names[channel] = i.msg.get_names()
+        state[channel] = "pending"
+        i.varset("names", state)
     else:
-        channel_mode(irc, msg)
+        irc.names[channel].update(i.msg.get_names())
+
+
+def rpl_endofnames_366(i, irc):
+    state = i.varget("names", defval={})
+    state[i.msg.get_channel()] = "ended"
+    i.varset("names", state)
+
+
+def join(i, irc):
+    nickname = i.msg.get_nickname()
+    channel = i.msg.get_channel()
+    try:
+        irc.names[channel].update({nickname: [""]})
+    except KeyError:
+        irc.names[channel] = {nickname: [""]}
+
+    # Log bot JOIN events
+    if nickname == irc.curr_nickname:
+        i.bot["runlog"].info(f"+ Joined {channel}")
+
+
+def part(i, irc):
+    nickname = i.msg.get_nickname()
+    channel = i.msg.get_channel()
+    del irc.names[channel][nickname]
+
+    # Log bot PART events
+    if nickname == irc.curr_nickname:
+        i.bot["runlog"].info(f"- Left {channel}")
+
+
+def quit(i, irc):
+    nickname = i.msg.get_nickname()
+    for channel in irc.names:
+        if nickname in irc.names[channel]:
+            del irc.names[channel][nickname]
+
+
+def nick(i, irc):
+    old_nickname = i.msg.get_nickname()
+    new_nickname = i.msg.get_new_nickname()
+    for channel in irc.names:
+        if old_nickname in irc.names[channel]:
+            mode = irc.names[channel].pop(old_nickname)
+            irc.names[channel][new_nickname] = mode
+
+
+def mode(i, irc):
+    if i.msg.is_channel_mode():
+        for mode in i.msg.get_modes():
+            if mode["mode"] in irc.prefix:
+                _user_prefix_mode(i, irc, mode)
+    else:
+        # User modes are not handled yet.
+        pass
+
+
+def _user_prefix_mode(i, irc, mode):
+    user = mode["param"]
+    target = i.msg.get_target()
+    prefix = irc.prefix[mode["mode"]]
+    if mode["flag"] == "+":
+        insert_prefix(irc, target, user, prefix)
+    elif mode["flag"] == "-":
+        # There is no way to reliably know the full prefix list without IRCv3.
+        # We send a NAMES command to get a new list.
+        irc.out.names([target])
+
+
+def insert_prefix(irc, channel, nickname, new_prefix):
+    for index, prefix in enumerate(irc.names[channel][nickname]):
+        if is_higher_prefix(new_prefix, prefix):
+            irc.names[channel][nickname].insert(index, new_prefix)
+            return
+    irc.names[channel][nickname].append(new_prefix)
+
+
+def is_higher_prefix(x, y):
+    "Is x a higher channel prefix than y?"
+    val = {"": 0, "+": 1, "%": 2, "@": 3, "&": 4, "~": 5}
+    return val[x] > val[y]
 
 
 def main(i, irc):
-    d = {
-        '353':  _rpl_namreply_353,
-        '324':  _rpl_channelmodeis_324,
-        'JOIN': _join,
-        'PART': _part,
-        'QUIT': _quit,
-        'NICK': _nick,
-        'MODE': _mode
-        }
-    d[i.msgtype](irc, i)
+    {
+        "353":  rpl_namreply_353,
+        "366":  rpl_endofnames_366,
+        "JOIN": join,
+        "PART": part,
+        "QUIT": quit,
+        "NICK": nick,
+        "MODE": mode
+    }[i.msg.get_command()](i, irc)
