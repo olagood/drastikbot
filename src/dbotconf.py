@@ -346,15 +346,16 @@ class Configuration:
         del self.conf["irc"]["user_acl"][index]
         self.save()
 
-    def is_banned_user_access_list(self, prefix, channel, module):
+    def is_banned_user_access_list(self, msg, module):
         uacl = self.get_user_access_list()
 
         if uacl is None:
             return False
 
-        nick = prefix["nickname"]
-        user = prefix["user"]
-        hostmask = prefix["host"]
+        nick = msg.get_nickname()
+        user = msg.get_user()
+        hostmask = msg.get_host()
+        channel = msg.get_msgtarget()
 
         for i in uacl:
             if _is_banned(i, channel, nick, user, hostmask, module):
