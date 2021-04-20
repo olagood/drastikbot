@@ -19,12 +19,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import base64
+import collections
+
+import constants
 
 
 class Module:
-    def __init__(self):
-        self.irc_commands = ["CAP", "AUTHENTICATE", "903", "904", "433", "376"]
-        self.startup = True
+    irc_commands = ["CAP", "AUTHENTICATE", "903", "904", "433", "376"]
+    startup = True
 
 
 def init(i, irc):
@@ -32,37 +34,38 @@ def init(i, irc):
     user = i.bot["conf"].get_user()
     realname = i.bot["conf"].get_realname()
 
-    irc.send(('CAP', 'LS', irc.ircv3_ver))
+    irc.send(('CAP', 'LS', constants.ircv3_version))
     irc.send(('USER', user, '0', '*', f':{realname}'))
-    irc.nick(nickname)
+    irc.out.nick(nickname)
 
     irc.curr_nickname = nickname
 
 
 def cap(i, irc):
-    if i.params[1] == "LS":  # CAP * LS
-        cap_ls(i, irc)
-    elif i.params[1] == "ACK":
-        cap_ack(i, irc)
+    subcmd = i.msg.get_subcommand()
+    if str(subcmd) == "LS":
+        cap_ls(subcmd, irc)
+    elif str(subcmd) == "ACK":
+        cap_ack(i, subcmd, irc)
 
 
-def cap_ls(i, irc):
-    irc.ircv3_cap_ls = [x for x in i.params[-1].split(" ") if x]
-    cap_req = [x for x in irc.ircv3_cap_ls if x in irc.ircv3_cap_req]
+def cap_ls(ls, irc):
+    req = ls.get_req()
 
     # If the server does not support any of the capabilities the bot supports,
     # end the registration here.
-    if not cap_req:
+    if not req:
         irc.send(('CAP', 'END'))
         return
 
-    irc.send(('CAP', 'REQ', ':{}'.format(' '.join(cap_req))))
+    req_s = " ".join(req)
+    irc.send(('CAP', 'REQ', f':{req_s}'))
 
 
-def cap_ack(i, irc):
-    irc.ircv3_cap_ack = i.params[-1].split()
+def cap_ack(i, ack, irc):
+    irc.ircv3_enabled = ack.get_enabled()
 
-    if i.bot["conf"].is_auth_method("sasl") and "sasl" in irc.ircv3_cap_ack:
+    if i.bot["conf"].is_auth_method("sasl") and "sasl" in irc.ircv3_enabled:
         irc.send(('AUTHENTICATE', 'PLAIN'))
     else:
         irc.send(('CAP', 'END'))
@@ -89,18 +92,18 @@ def sasl_fail_904(i, irc):
 def err_nicnameinuse_433(self):
     irc.curr_nickname = irc.curr_nickname + '_'
     irc.alt_nickname = True
-    irc.nick(irc.curr_nickname)
+    irc.out.nick(irc.curr_nickname)
 
 
 def rpl_endofmotd_376(i, irc):
     # TODO: check what the actual nickname is. Aka see for +r mode
     if irc.alt_nickname and i.bot["conf"].get_auth_method():
-        irc.privmsg("NickServ", f"GHOST {nickname} {password}")
-        irc.privmsg("NickServ", f"RECOVER {nickname} {password}")
+        irc.out.privmsg("NickServ", f"GHOST {nickname} {password}")
+        irc.out.privmsg("NickServ", f"RECOVER {nickname} {password}")
     elif i.bot["conf"].is_auth_method("nickserv"):
-        irc.privmsg("NickServ", f"IDENTIFY {nickname} {password}")
+        irc.out.privmsg("NickServ", f"IDENTIFY {nickname} {password}")
 
-    irc.join(i.bot["conf"].get_channels())
+    irc.out.join(i.bot["conf"].get_channels())
 
 
 def main(i, irc):
@@ -112,4 +115,4 @@ def main(i, irc):
         "904": sasl_fail_904,
         "433": err_nicnameinuse_433,
         "376": rpl_endofmotd_376
-    }[i.command](i, irc)
+    }[i.msg.get_command()](i, irc)
