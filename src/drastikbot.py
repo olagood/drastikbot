@@ -103,7 +103,8 @@ def cli_arg_state():
         "devmode": devmode,
         "loglevel": loglevel,
         "logdir": logdir,
-        "runlog": runlog
+        "runlog": runlog,
+        "modules": None
     }
     return state
 
