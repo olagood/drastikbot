@@ -30,6 +30,7 @@ import sqlite3
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
+import irc.message as parser
 from dbot_tools import Logger
 
 
@@ -75,10 +76,15 @@ def _new_module_state():
     }
 
 
-def get_object_from_name(s, module_name):
-    for module_object, module_path in i.mod["modules_d"].items():
+def get_object_from_name(bot, module_name):
+    return _get_object_from_name(bot["modules"], module_name)
+
+
+def _get_object_from_name(s, module_name):
+    for module_object, module_path in s["modules_d"].items():
         if module_path.stem == module_name:
             return module_object
+    return None
 
 
 # ====================================================================
@@ -117,7 +123,7 @@ def read_module_class(s, path, module_object):
 
     # Module(): Check if the module has such a class
     try:
-        module_class = module_object.Module()
+        module_class = module_object.Module
     except AttributeError:
         log.debug(f"Module() class not found for: ``{path.stem}''")
         return s
@@ -164,16 +170,30 @@ def import_from_list(modules, log_import=True, state=None):
         if log_import:
             log.info(f"| Loaded module: {path.stem}")
 
+    print("")  # Pretty stdout
+
     return s
 
 
-def reload_all(s):
-    old_modules_d = s["modules_d"]
+def reload_all(bot):
+    old_modules_d = bot["modules"]["modules_d"]
     s = _new_module_state()
 
     for module_object in old_modules_d:
-        importlib.reload(module_object)
         path = old_modules_d[module_object]
+        try:
+            importlib.reload(module_object)
+        except Exception:
+            # Print the exeption but add the old references in the state,
+            # so that we can retry reloading it the next time.
+            # It's only added in ``modules_d'' because we don't want to
+            # make the module look like it works (because of the old
+            # reference) and confuse the developer.
+            tc = traceback.format_exc()
+            log.debug(f"- Module load exception:``{path}''\n{tc}")
+            s["modules_d"][module_object] = path
+            continue
+
         read_module_class(s, path, module_object)
 
     return s
@@ -187,7 +207,7 @@ def mod_import(bot):
 
     # User modules: Third party modules provided by the user
     for path in bot["conf"].get_modules_paths():
-        path = Path(path)
+        path = Path(path).expanduser()
         import_l = candidates_from_path(bot, path)
         s = import_from_list(import_l, state=s)
 
@@ -198,53 +218,38 @@ def mod_import(bot):
 # Message dispatchers
 # ====================================================================
 
-CommandData = collections.namedtuple(
-    "CommandData", [
-        "message", "prefix", "command", "params",
-        "db_memory", "db_disk", "mod", "mod_import", "mod_reload",
-        "bot", "varget", "varset"
+CallbackData = collections.namedtuple(
+    "CallbackData", [
+        "msg", "db_memory", "db_disk", "bot", "varget", "varset"
     ]
 )
 
 
-def bot_command_data(s, bot, irc, message, bot_command):
-    message, prefix, command, params = message
-
-    bot_command_prefix = bot_command[:1]
-    bot_command = bot_command[1:]
-
-    message_no_bot_command = params[-1].split(" ", 1)
-
-    # bot_commands are PRIVMSG only. Extend the params dict's API.
-    params.update({"bot_command": bot_command,
-                   "bot_command_prefix": bot_command_prefix,
-                   "message_no_bot_command": message_no_bot_command})
-
-    return CommandData(
-        message=message,
-        prefix=prefix,
-        command=command,
-        params=params,
+def callback_data(bot, msg):
+    return CallbackData(
+        msg=msg,
         db_memory=db_memory,
         db_disk=db_disk,
-        varset=var_memory.varset,
         varget=var_memory.varget,
-        mod=s,
-        bot=bot,
-        mod_import=mod_import,
-        mod_reload=reload_all
+        varset=var_memory.varset,
+        bot=bot
     )
 
 
-def bot_command_dispatch(s, bot, irc, message, bot_command):
-    conf = bot["conf"]
-    data = bot_command_data(s, bot, irc, message, bot_command)
-    nickname = data.prefix["nickname"]
-    user = data.prefix["user"]
-    host = data.prefix["host"]
-    channel = data.channel
+def mod_call(module_name, fn, /, *args, **kwargs):
+    try:
+        fn(*args, **kwargs)
+    except Exception:
+        tc = traceback.format_exc()
+        log.debug(f"Module ``{module_name}'' error:\n{tc}")
 
-    for module_object in s["bot_command_d"].get(data.cmd, []):
+
+def bot_command_dispatch(s, bot, irc, msg):
+    conf = bot["conf"]
+    data = callback_data(bot, msg)
+    channel = msg.get_msgtarget()
+
+    for module_object in s["bot_command_d"].get(msg.get_botcmd(), []):
         module_name = s["modules_d"][module_object].stem
 
         # Is the channel blacklisted/whitelisted ?
@@ -252,73 +257,60 @@ def bot_command_dispatch(s, bot, irc, message, bot_command):
             continue
 
         # Is the user restricted by the user access list ?
-        if conf.is_banned_user_access_list(data.prefix, channel, module_name):
+        if conf.is_banned_user_access_list(msg, module_name):
             continue
 
-        try:
-            module_object.main(data, irc)
-        except Exception:
-            tc = traceback.format_exc()
-            log.debug(f"Module ``{module_name}'' error:\n{tc}")
+        mod_call(module_name, module_object.main, data, irc)
 
 
-def irc_command_data(s, bot, message):
-    return CommandData(
-        message=message[0],
-        prefix=message[1],
-        command=message[2],
-        params=message[3],
-        db_memory=db_memory,
-        db_disk=db_disk,
-        varget=var_memory.varget,
-        varset=var_memory.varset,
-        mod=s,
-        bot=bot,
-        mod_import=mod_import,
-        mod_reload=reload_all
-    )
+def bot_command_maybe(s, bot, irc, msg):
+    if msg.get_command() != "PRIVMSG":
+        return
+
+    prefix = msg.get_botcmd_prefix()
+    receiver = msg.get_msgtarget()
+
+    if bot["conf"].get_channel_prefix(receiver) == prefix:
+        bot_command_dispatch(s, bot, irc, msg)
 
 
-def irc_command_dispatch(s, bot, irc, message):
+def irc_command_dispatch(s, bot, irc, msg):
     conf = bot["conf"]
-    data = irc_command_data(s, bot, message)
+    data = callback_data(bot, msg)
 
-    for module_object in s["irc_command_d"].get(data.command, []):
+    for module_object in s["irc_command_d"].get(msg.get_command(), []):
         module_name = s["modules_d"][module_object].stem
 
-        if data.command == "PRIVMSG":
-            channel = data.params[0]
+        if msg.get_command() == "PRIVMSG":
+            channel = msg.get_msgtarget()
 
             # Is the channel blacklisted/whitelisted ?
             if not conf.check_channel_module_access(module_name, channel):
                 continue
 
             # Is the user restricted by the user access list ?
-            if conf.is_banned_user_access_list(
-                    data.prefix, channel, module_name):
+            if conf.is_banned_user_access_list(msg, module_name):
                 continue
 
-        try:
-            irc_command_tpool.submit(module_object.main, data, irc)
-        except Exception:
-            tc = traceback.format_exc()
-            log.debug(f"Module ``{module_name}'' error:\n{tc}")
+        irc_command_tpool.submit(
+            mod_call, module_name, module_object.main, data, irc)
 
 
-def dispatch(s, bot, irc, message):
-    raw, prefix, command, params = message
+def dispatch(bot, irc, msg):
+    s = bot["modules"]
+    irc_command_tpool.submit(irc_command_dispatch, s, bot, irc, msg)
 
-    irc_command_tpool.submit(irc_command_dispatch, s, bot, irc, message)
-
-    if command == "PRIVMSG":
-        channel = params[0]
-        bot_command = params[-1].split(" ", 1)[0]
-        bot_command_prefix = bot_command[:1]
-        if bot["conf"].get_channel_prefix(channel) == bot_command_prefix:
-            bot_command_dispatch(s, bot, irc, message, bot_command)
+    try:
+        bot_command_maybe(s, bot, irc, msg)
+    except Exception:
+        tc = traceback.format_exc()
+        log.debug(f"- Module ``maybe'' error:\n{tc}")
 
 
-def startup(s, bot, irc):
+StartupMsg = collections.namedtuple("StartupMsg", ["get_command"])
+
+
+def startup(bot, irc):
     '''
     Run modules configured with the "self.startup = True" option.
     The bot doesn't manage the modules after they get started.
@@ -327,7 +319,8 @@ def startup(s, bot, irc):
     the value of "irc.conn_bot_state") and handle a possible disconnect.
     The bot's whitelist/blacklist is not being taken into account.
     '''
-    data = irc_command_data(s, bot, ("", "", "__STARTUP", ""))
+    s = bot["modules"]
+    data = callback_data(bot, StartupMsg(lambda: "__STARTUP"))
 
     for module_object in s["startup_l"]:
         try:
@@ -388,10 +381,10 @@ class VariableMemory:
         try:
             return getattr(self, name)
         except AttributeError:
-            if defval and not raw:
+            if defval is not False and not raw:
                 self.varset(name, defval)
                 return defval
             else:
-                raise AttributeError(f"'{name}' has no value set. "
-                                     "Try passing a default value"
-                                     " or set 'raw=False'")
+                m = (f"``{name}'' has no value set. Try passing a default"
+                     " value or set ``raw=False''")
+                raise AttributeError(m)
