@@ -48,7 +48,7 @@ class Main:
         self.irc = Drastikbot(state)
 
         irc.modules.init(state)
-        self.mod_state = irc.modules.mod_import(state)
+        self.state["modules"] = irc.modules.mod_import(state)
 
     def conn_lost(self):
         if self.irc.sigint:
@@ -62,7 +62,7 @@ class Main:
         self.irc = Drastikbot(self.state)
         self.main(reconnect=True)  # Restart the bot
 
-    def recieve(self):
+    def receive(self):
         data = b""
         while self.irc.conn_state != 0:
             try:
@@ -70,32 +70,30 @@ class Main:
             except BlockingIOError:
                 continue  # No data on non blocking socket.
             except Exception:
-                self.log.debug('<!!!> Exception on recieve().'
-                               f'\n{traceback.format_exc()}')
+                tc = traceback.format_exc()
+                self.log.debug(f'! Exception on receive(). \n{tc}')
                 self.conn_lost()
                 break
 
             if not data:
-                self.log.info('<!> recieve() exiting...')
+                self.log.info('! recieve() exiting...')
                 self.conn_lost()
                 break
 
             while True:
                 data_l = data.split(b'\n', 1)
                 if len(data_l) == 1:
-                    break
+                    break    # No lines yet, wait for more data
 
-                data = data_l[1]
-                line = data_l[0]
-                message = irc.message.parse(line)
+                line, data = data_l
+                message = irc.message.parse(self.irc, line)
 
-                # Auto reload modules in developer mode to make programming easier
+                # Reload modules in developer mode
                 if self.state["devmode"]:
-                    self.mod_state = irc.modules.reload_all(self.mod_state)
+                    self.state["modules"] = irc.modules.reload_all(self.state)
 
                 self.tpool.submit(irc.modules.dispatch,
-                                  self.mod_state, self.state, self.irc,
-                                  message)
+                                  self.state, self.irc, message)
 
     def thread_make(self, target, args='', daemon=False):
         thread = Thread(target=target, args=(args))
@@ -105,12 +103,14 @@ class Main:
 
     def sigint_hdl(self, signum, frame):
         if self.irc.sigint == 0:
-            self.log.info("\n> Quiting...")
+            print("")  # Pretty stdout
+            self.log.info("<- Quiting...")
             self.irc.sigint += 1
             self.irc.conn_state = 0
-            self.irc.quit()
+            self.irc.out.quit(self.state["conf"].get_quitmsg())
         else:
-            self.log.info("\n Force Quit.")
+            print("")  # Pretty stdout
+            self.log.info("<--- Force Quit.")
             os._exit(1)
 
     def main(self, reconnect=False):
@@ -119,6 +119,5 @@ class Main:
         if self.irc.sigint:
             return
         self.irc.conn_state = 1
-        self.thread_make(self.recieve)
-        self.thread_make(irc.modules.startup,
-                         (self.mod_state, self.state, self.irc))
+        self.thread_make(self.receive)
+        self.thread_make(irc.modules.startup, (self.state, self.irc))
