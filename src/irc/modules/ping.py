@@ -23,10 +23,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 class Module:
-    def __init__(self):
-        self.irc_commands = ['PING']
+    irc_commands = ["PING"]
 
 
 def main(i, irc):
-    m = " ".join(i.params)
-    irc.send(("PONG", m))
+    if hasattr(i.msg, "server2"):
+        irc.out.pong(i.msg.server1, i.msg.server2)
+    else:
+        irc.out.pong(i.msg.server1)
