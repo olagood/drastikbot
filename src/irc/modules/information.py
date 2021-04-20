@@ -4,7 +4,7 @@
 # It returns information about the bot to it's users.
 
 '''
-Copyright (C) 2019 drastik.org
+Copyright (C) 2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -21,23 +21,33 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
+import constants
+
 
 class Module:
-    def __init__(self):
-        self.commands = ['bots', 'source']
+    bot_commands = ["bots", "source"]
+
+
+def bots(i, irc):
+    m = (f"\x0305,01drastikbot {constants.version}\x0F"
+         " | \x0305Python 3.6\x0F"
+         " | \x0305GNU AGPLv3 ONLY\x0F"
+         " | \x0311http://drastik.org/drastikbot")
+    irc.out.notice(i.msg.get_msgtarget(), m)
+
+
+def source(i, irc):
+    args = i.msg.get_args()
+    if not args or args.strip() == irc.curr_nickname:
+        m = ("\x0305,01drastikbot\x0F"
+             " : \x0311https://github.com/olagood/drastikbot\x0F"
+             " | \x0305,01Modules\x0F"
+             " : \x0311https://github.com/olagood/drastikbot_modules\x0F")
+        irc.out.notice(i.msg.get_msgtarget(), m)
 
 
 def main(i, irc):
-    if i.cmd == "bots":
-        m = (f"\x0305,01drastikbot {irc.var.version}\x0F"
-             " | \x0305Python 3.6\x0F"
-             " | \x0305GNU AGPLv3 ONLY\x0F"
-             " | \x0311http://drastik.org/drastikbot")
-        irc.privmsg(i.channel, m)
-    elif i.cmd == "source":
-        if not i.msg_nocmd or i.msg_nocmd == irc.var.curr_nickname:
-            m = ("\x0305,01drastikbot\x0F"
-                 " : \x0311https://github.com/olagood/drastikbot\x0F"
-                 " | \x0305,01Modules\x0F"
-                 " : \x0311https://github.com/olagood/drastikbot_modules\x0F")
-            irc.privmsg(i.channel, m)
+    if i.msg.is_botcmd("bots"):
+        bots(i, irc)
+    elif i.msg.is_botcmd("source"):
+        source(i, irc)
