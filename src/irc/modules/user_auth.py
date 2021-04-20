@@ -4,7 +4,7 @@
 # It provides functions for checking a user's authentication status.
 
 '''
-Copyright (C) 2018-2019 drastik.org
+Copyright (C) 2018-2019, 2021 drastik.org
 
 This file is part of drastikbot.
 
@@ -25,19 +25,16 @@ import time
 
 
 class Module:
-    def __init__(self):
-        self.msgtypes = ['NOTICE']
-        self.commands = ['whois']
-        self.auto = True
+    irc_commands = ["NOTICE"]
 
 
 def user_auth(i, irc, nickname, timeout=10):
     to = time.time() + timeout
-    irc.privmsg("NickServ", f"ACC {nickname}")
-    irc.privmsg("NickServ", f"STATUS {nickname}")
+    irc.out.privmsg("NickServ", f"ACC {nickname}")
+    irc.out.privmsg("NickServ", f"STATUS {nickname}")
     i.varset(nickname, "_pending")
     while True:
-        time.sleep(.5)
+        time.sleep(.3)
         auth = i.varget(nickname)
         if auth != "_pending":
             return auth
@@ -46,19 +43,20 @@ def user_auth(i, irc, nickname, timeout=10):
 
 
 def nickserv_handler(i):
-    ls = i.msg_params.split()
-    if ls[1] == 'ACC' and i.varget(ls[0]) == "_pending":
-        if '3' in i.msg_params:
+    text = i.msg.get_text()
+    ls = text.split()
+    if ls[1] == "ACC" and i.varget(ls[0]) == "_pending":
+        if "3" in text:
             i.varset(ls[0], True)
         else:
             i.varset(ls[0], False)
-    elif ls[0] == 'STATUS' and i.varget(ls[1]) == "_pending":
-        if '3' in i.msg_params:
+    elif ls[0] == "STATUS" and i.varget(ls[1]) == "_pending":
+        if "3" in text:
             i.varset(ls[1], True)
         else:
             i.varset(ls[1], False)
 
 
 def main(i, irc):
-    if i.nickname == 'NickServ':
+    if i.msg.is_nickname("NickServ"):
         nickserv_handler(i)
