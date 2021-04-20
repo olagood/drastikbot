@@ -53,3 +53,8 @@ def get_log_dir(botdir):
 # Get a pathlib Path object from the directory string
 def get_directory_path(directory):
     return Path(directory).expanduser().resolve()
+
+
+# IRCv3
+ircv3_version = "301"
+ircv3_req = ("sasl")
