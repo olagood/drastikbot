@@ -28,7 +28,7 @@ from user_auth import user_auth
 
 
 class Module:
-    _bot_commands = ["ignore", "unignore", "ignored", "ignore_mode"]
+    bot_commands = ["ignore", "unignore", "ignored", "ignore_mode"]
     manual = {
         "desc": ("Manage your ignore lists. Ignored users will not be able"
                  " to use your nickname in the supported modules."),

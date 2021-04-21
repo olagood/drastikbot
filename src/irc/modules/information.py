@@ -30,8 +30,8 @@ class Module:
 
 def bots(i, irc):
     m = (f"\x0305,01drastikbot {constants.version}\x0F"
-         " | \x0305Python 3.6\x0F"
-         " | \x0305GNU AGPLv3 ONLY\x0F"
+         " | \x0305Python 3.8\x0F"
+         " | \x0305GNU AGPLv3\x0F"
          " | \x0311http://drastik.org/drastikbot")
     irc.out.notice(i.msg.get_msgtarget(), m)
 
