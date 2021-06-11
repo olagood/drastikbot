@@ -43,7 +43,7 @@ def print_banner():
  Drastikbot 2.2
     An IRC bot focused on its extensibility and personalization
 
- License: GNU AGPLv3 only
+ License: GNU AGPLv3
  Drastikbot 2.2 comes WITHOUT ANY WARRANTY
 
  Welcome!
