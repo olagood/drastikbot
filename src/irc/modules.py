@@ -76,22 +76,24 @@ def _new_module_state():
     }
 
 
-def get_object_from_name(bot, module_name):
-    return _get_object_from_name(bot["modules"], module_name)
-
-
-def _get_object_from_name(s, module_name):
+def get_object_from_name(s, module_name):
     for module_object, module_path in s["modules_d"].items():
         if module_path.stem == module_name:
             return module_object
     return None
 
 
+def is_imported(s, module_name):
+    module_paths = s["modules_d"].values()
+    module_names = [x.stem for x in module_paths]
+    return module_name in module_names
+
+
 # ====================================================================
 # Module importing, loading and reloading functions
 # ====================================================================
 
-def candidates_from_path(bot, path, force=False):
+def candidates_from_path(bot, path, load="all"):
     """Search a directory for modules to import. Only the modules whose
     names are found in the configuration file are returned.
 
@@ -100,7 +102,6 @@ def candidates_from_path(bot, path, force=False):
     :param force: If True return every module without checking the config.
     :returns: An iterator of paths to modules that should be imported.
     """
-    load = bot["conf"].get_modules_load()
 
     # Check if the module directory exists under the configuration
     # directory and make it otherwise.
@@ -114,7 +115,7 @@ def candidates_from_path(bot, path, force=False):
 
     # Return .py files (whose names are in `load' if `force' is False)
     return filter(lambda x: x.is_file() and x.suffix == ".py"
-                  and (force or x.stem in load),
+                  and (load == "all" or x.stem in load),
                   path.iterdir())
 
 
@@ -130,11 +131,6 @@ def read_module_class(s, path, module_object):
 
     # Module(): Handle bot_commands
     for bot_c in getattr(module_class, "bot_commands", []):
-        s["bot_command_d"].setdefault(bot_c, []).append(module_object)
-
-    # Deprecated 2.2
-    # Module(): Handle commands (legacy usage of bot_commands)
-    for bot_c in getattr(module_class, "commands", []):
         s["bot_command_d"].setdefault(bot_c, []).append(module_object)
 
     # Module(): Handle irc_commands
@@ -158,6 +154,12 @@ def import_from_list(modules, log_import=True, state=None):
     importlib.invalidate_caches()
 
     for path in modules:
+        if is_imported(s, path.stem):
+            m = (f"! A module called ``{path.stem}'' has already been loaded."
+                 " Skipping...")
+            log.debug(m)
+            continue
+
         try:
             module_object = importlib.import_module(str(path.stem))
         except Exception:
@@ -165,7 +167,7 @@ def import_from_list(modules, log_import=True, state=None):
             log.debug(f"- Module load exception:``{path}''\n{tc}")
             continue
 
-        read_module_class(s, path, module_object)
+        s = read_module_class(s, path, module_object)
 
         if log_import:
             log.info(f"| Loaded module: {path.stem}")
@@ -202,13 +204,13 @@ def reload_all(bot):
 def mod_import(bot):
     # System modules: Required core modules
     path = Path(bot["program_path"], "irc/modules")
-    import_l = candidates_from_path(bot, path, force=True)
+    import_l = candidates_from_path(bot, path, load="all")
     s = import_from_list(import_l, log_import=bot["devmode"])
 
     # User modules: Third party modules provided by the user
-    for path in bot["conf"].get_modules_paths():
+    for path, load in bot["conf"].get_modules_paths().items():
         path = Path(path).expanduser()
-        import_l = candidates_from_path(bot, path)
+        import_l = candidates_from_path(bot, path, load=load)
         s = import_from_list(import_l, state=s)
 
     return s
@@ -307,7 +309,8 @@ def dispatch(bot, irc, msg):
         log.debug(f"- Module ``maybe'' error:\n{tc}")
 
 
-StartupMsg = collections.namedtuple("StartupMsg", ["get_command"])
+StartupMsg = collections.namedtuple("StartupMsg", [
+    "get_command", "is_command"])
 
 
 def startup(bot, irc):
@@ -320,7 +323,8 @@ def startup(bot, irc):
     The bot's whitelist/blacklist is not being taken into account.
     '''
     s = bot["modules"]
-    data = callback_data(bot, StartupMsg(lambda: "__STARTUP"))
+    msg = StartupMsg(lambda: "__STARTUP", lambda x: x == "__STARTUP")
+    data = callback_data(bot, msg)
 
     for module_object in s["startup_l"]:
         try:
