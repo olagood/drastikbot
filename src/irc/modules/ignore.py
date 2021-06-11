@@ -55,7 +55,7 @@ logo = "\x02ignore\x0F"
 # ====================================================================
 
 def is_ignored(i, irc, user, query_nick):
-    dbc = i.db[1].cursor()
+    dbc = i.db_disk.cursor()
     try:
         dbc.execute("SELECT settings FROM ignore WHERE user = ?;", (user,))
         j = dbc.fetchone()[0]
