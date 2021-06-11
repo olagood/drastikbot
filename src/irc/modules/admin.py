@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import datetime
 
 import irc.modules as modmgmt
+from dbotconf import parse_uacl
 from user_auth import user_auth
 
 
@@ -30,7 +31,7 @@ class Module:
     bot_commands = [
         "join", "part", "privmsg", "notice",
         "acl_add", "acl_del", "acl_list",
-        "mod_import",
+        "mod_import", "mod_reload",
         "mod_whitelist_add", "mod_whitelist_del",
         "mod_blacklist_add", "mod_blacklist_del",
         "mod_list",
@@ -194,58 +195,13 @@ def notice(i, irc):
 #
 # User ACL
 #
-def _get_future_unix_timestamp_from_str(duration_str):
-    seconds = 0
-
-    tmp = 0
-    for i in duration_str:
-        if i.isdigit():
-            tmp *= 10
-            tmp += int(i)
-        elif i == 'y':
-            seconds += 31536000 * tmp  # 365days * 24hours * 60mins * 60secs
-            tmp = 0
-        elif i == 'M':
-            seconds += 2592000 * tmp  # 30days * 24hours * 60mins * 60secs
-            tmp = 0
-        elif i == 'w':
-            seconds += 604800 * tmp  # 7days * 24hours * 60mins * 60secs
-            tmp = 0
-        elif i == 'd':
-            seconds += 86400 * tmp  # 24hours * 60mins * 60secs
-            tmp = 0
-        elif i == 'h':
-            seconds += 3600 * tmp  # 60mins * 60secs
-            tmp = 0
-        elif i == 'm':
-            seconds += 60 * tmp  # 60secs
-            tmp = 0
-        elif i == 's':
-            seconds += tmp
-            tmp = 0
-        else:
-            return False
-
-        now = datetime.datetime.now(datetime.timezone.utc).timestamp()
-        return now + seconds
-
-
-def _check_usermask(usermask):
-    try:
-        t = usermask.split("!", 1)
-        t[0]
-        t = t[1].split("@", 1)
-        t[0]
-        t[1]
-        return True
-    except Exception:
-        return False
-
-
 def acl_add(i, irc):
     nickname = i.msg.get_nickname()
     args = i.msg.get_args()
     prefix = i.msg.get_botcmd_prefix()
+
+    modules = i.bot["modules"]
+    conf = i.bot["conf"]
 
     m = (f"Usage: {prefix}acl_add "
          "<channel> <nickname>!<username>@<hostname> <duration> "
@@ -254,35 +210,29 @@ def acl_add(i, irc):
     if not args:
         return irc.out.notice(nickname, m)
 
-    args = args.split(" ", 3)
-    if len(args) < 4:
-        return irc.out.notice(nickname, m)
+    status = parse_uacl(args)
 
-    channel = args[0]
-    usermask = args[1]
-    duration = args[2]
-    modules = args[3].replace(" ", "")
+    if status[0] == 1:  # Not enough args
+        irc.out.notice(nickname, m)
+        return
+    elif status[0] == 2:  # Invalid usermask
+        m = "\x0304Invalid usermask ``status[1]'' given."
+        irc.out.notice(nickname, m)
+        return
+    elif status[0] == 3:  # Invalid duration
+        m = "\x0304Invalid duration ``staus[1]'' given."
+        irc.out.notice(nickname, m)
+        return
+    elif status[0] == 4: # Invalid modules
+        m = "\x0304Invalid modules ``staus[1]'' given."
+        irc.out.notice(nickname, m)
+        return
 
-    if not irc.conf.has_channel(channel) and channel != '*':
+    channel = status["channel"]
+    if not conf.has_channel(channel) and channel != '*':
         m = f"\x0304I am not in {channel}"
-        return irc.out.notice(nickname, m)
-
-    if not _check_usermask(usermask):
-        m = f"\x0304Invalid usermask ``{usermask}'' given."
-        return irc.out.notice(nickname, m)
-
-    if duration != '0':
-        duration = _get_future_unix_timestamp_from_str(duration)
-        if not duration:
-            m = "\x0304Error while parsing the duration string"
-            return irc.out.notice(nickname, m)
-
-    if modules != '*':
-        module_list = modules.split(",")
-        for module_name in module_list:
-            if modmgmt.get_object_from_name(i.bot, module_name) is None:
-                m = f"\x0304Error: Module ``{module_name}'' not loaded"
-                return irc.out.notice(nickname, m)
+        irc.out.notice(nickname, m)
+        return
 
     if channel == '*':
         if not is_allowed(i, irc, nickname):
@@ -294,7 +244,15 @@ def acl_add(i, irc):
                  f"Are you an operator of {channel}?")
             return irc.out.notice(nickname, m)
 
-    irc.conf.add_user_access_list(i.msg.get_args())
+    modules = status["modules"]
+    if modules != '*':
+        for module_name in modules:
+            if modmgmt.get_object_from_name(modules, module_name) is None:
+                m = f"\x0304Module ``{module_name}'' not loaded"
+                irc.out.notice(nickname, m)
+                return
+
+    conf.add_user_access_list(status)
     irc.out.notice(nickname, f"\x0303Mask added in the ACL")
 
 
@@ -361,7 +319,7 @@ def mod_reload(i, irc):
         return irc.out.notice(nickname, m)
 
     # Reload the modules
-    i.bot["modules"] = modmgmt.mod_reload(i.bot)
+    i.bot["modules"] = modmgmt.reload_all(i.bot)
 
     irc.out.notice(nickname, '\x0303Modules reloaded')
 
@@ -370,6 +328,9 @@ def mod_whitelist_add(i, irc):
     nickname = i.msg.get_nickname()
     args = i.msg.get_args()
     prefix = i.msg.get_botcmd_prefix()
+
+    modules = i.bot["modules"]
+    conf = i.bot["conf"]
 
     m = f"Usage: {prefix}mod_whitelist_add <module> <channel>"
     if not args:
@@ -382,7 +343,7 @@ def mod_whitelist_add(i, irc):
     module = args[0]
     channel = args[1]
 
-    if not irc.conf.has_channel(channel):
+    if not conf.has_channel(channel):
         m = f"\x0304I am not in {channel}"
         return irc.out.notice(nickname, m)
 
@@ -391,22 +352,22 @@ def mod_whitelist_add(i, irc):
         irc.out.notice(nickname, m)
         return
 
-    if modmgmt.get_object_from_name(i.bot, module_name) is None:
+    if modmgmt.get_object_from_name(modules, module_name) is None:
         m = f"\x0304Error: Module ``{module_name}'' not loaded"
         return irc.out.notice(nickname, m)
 
-    if not irc.conf.is_allowed_module_whitelist(module):
+    if not conf.is_allowed_module_whitelist(module):
         m = (f"\x0304The module: {module} has a blacklist set. "
              "Clear the blacklist and try again.")
         irc.out.notice(nickname, m)
         return
 
-    if irc.conf.has_channel_module_whitelist(module, channel):
+    if conf.has_channel_module_whitelist(module, channel):
         m = f"\x0304{channel} has already been added in {module}'s whitelist"
         irc.out.notice(nickname, m)
         return
 
-    irc.conf.add_channel_module_whitelist(module, channel)
+    conf.add_channel_module_whitelist(module, channel)
     m = f"\x0303{channel} added in {module}'s whitelist"
     irc.out.notice(nickname, m)
 
@@ -415,6 +376,9 @@ def mod_blacklist_add(i, irc):
     nickname = i.msg.get_nickname()
     args = i.msg.get_args()
     prefix = i.msg.get_botcmd_prefix()
+
+    modules = i.bot["modules"]
+    conf = i.bot["conf"]
 
     m = f"Usage: {prefix}mod_blacklist_add <module> <channel>"
     if not args:
@@ -427,7 +391,7 @@ def mod_blacklist_add(i, irc):
     module = args[0]
     channel = args[1]
 
-    if not irc.conf.has_channel(channel):
+    if not conf.has_channel(channel):
         m = f"\x0304I am not in {channel}"
         return irc.out.notice(nickname, m)
 
@@ -436,22 +400,22 @@ def mod_blacklist_add(i, irc):
         irc.out.notice(nickname, m)
         return
 
-    if modmgmt.get_object_from_name(i.bot, module_name) is None:
+    if modmgmt.get_object_from_name(modules, module_name) is None:
         m = f"\x0304Error: Module ``{module_name}'' not loaded"
         return irc.out.notice(nickname, m)
 
-    if not irc.conf.is_allowed_module_blacklist(module):
+    if not conf.is_allowed_module_blacklist(module):
         m = (f"\x0304The module: {module} has a whitelist set. "
              "Clear the whitelist and try again.")
         irc.out.notice(nickname, m)
         return
 
-    if irc.conf.has_channel_module_blacklist(module, channel):
+    if conf.has_channel_module_blacklist(module, channel):
         m = f"\x0304{channel} has already been added in {module}'s blacklist"
         irc.out.notice(nickname, m)
         return
 
-    irc.conf.add_channel_module_blacklist(module, channel)
+    conf.add_channel_module_blacklist(module, channel)
     m = f"\x0303{channel} added in {module}'s blacklist"
     irc.out.notice(nickname, m)
 
