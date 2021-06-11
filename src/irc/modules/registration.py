@@ -85,7 +85,7 @@ def sasl_success_903(i, irc):
 
 
 def sasl_fail_904(i, irc):
-    i.bot["log"].info("! SASL authentication failed.")
+    i.bot["runlog"].info("! SASL authentication failed.")
     irc.send(("CAP", "END"))
 
 
