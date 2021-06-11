@@ -91,6 +91,7 @@ class Drastikbot():
         # (TODO: The bot should dynamically change it based on the bot's
         # nickname and hostmask length)
         self.msg_len = 400
+        self.msg_delay = 1  # 1 second
 
         # Runtime Variables
         self.curr_nickname = ''        # Nickname currently used
