@@ -23,92 +23,179 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
 import datetime
 
-
-# ====================================================================
-# Helper functions
-# ====================================================================
-
-def _is_ascii_cl(x, y):
-    """Is x an ascii caseless match for y ?"""
-    return x.lower() == y.lower()
+from dbothelper import is_ascii_cl
 
 
 # ====================================================================
 # User ACL: Helper functions to parser user_acl masks
 # ====================================================================
 
-def _m_user(m, user):
-    m = m.lower()
-    user = user.lower()
+# Parser
 
-    if m == user or m == "*":
-        return True
-    elif "*" == m[0] and m[1:] == user[-len(m[1:]):]:
-        return True
-    else:
+def parse_uacl(mask):
+    args = mask.split(" ", 3)
+    if len(args) < 4:
+        return 1, len(args) # Not enough arguments given
+
+    channel = args[0]
+
+    usermask = _parse_usermask_uacl(args[1])
+    if not usermask:
+        return 2, args[1]  # Invalid usermask
+
+    nick, user, host = usermask
+
+    timestamp = _get_future_unix_timestamp_uacl(args[2])
+    if not duration:
+        return 3, args[2]  # Invalid duration
+
+    modules = _parse_modules_uacl(args[3])
+    if not modules:
+        return 4, args[3]  # Invalid modules
+
+    return {
+        "channel": channel,
+        "nick": nick,
+        "user": user,
+        "host": host,
+        "timestamp": timestamp,
+        "modules": modules
+    }
+
+
+def _parse_usermask_uacl(usermask):
+    try:
+        t = usermask.split("!", 1)
+        nick = t[0]
+        user, host = t[1].split("@", 1)
+        return nick, user, host
+    except Exception:
         return False
 
 
-def _m_host(m, hostmask):
-    if m == hostmask or m == "*":
-        return True
-    elif "*" == m[0] and m[1:] == hostmask[-len(m[1:]):]:
-        return True
-    elif "*" == m[-1] and m[:-1] == hostmask[:len(m[:-1])]:
-        return True
-    else:
-        return False
+def _get_future_unix_timestamp_uacl(duration_s):
+    if duration_s == "0":
+        return 0
 
+    seconds = 0
+    tmp = 0
+    for i in duration_s:
+        if i.isdigit():
+            tmp *= 10
+            tmp += int(i)
+        elif i == 'y':
+            seconds += 31536000 * tmp  # 365days * 24hours * 60mins * 60secs
+            tmp = 0
+        elif i == 'M':
+            seconds += 2592000 * tmp  # 30days * 24hours * 60mins * 60secs
+            tmp = 0
+        elif i == 'w':
+            seconds += 604800 * tmp  # 7days * 24hours * 60mins * 60secs
+            tmp = 0
+        elif i == 'd':
+            seconds += 86400 * tmp  # 24hours * 60mins * 60secs
+            tmp = 0
+        elif i == 'h':
+            seconds += 3600 * tmp  # 60mins * 60secs
+            tmp = 0
+        elif i == 'm':
+            seconds += 60 * tmp  # 60secs
+            tmp = 0
+        elif i == 's':
+            seconds += tmp
+            tmp = 0
+        else:
+            return False
 
-def _check_time(timestamp):
-    if timestamp == 0:
-        return True
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
-    if timestamp > now:
-        return True
-    else:
+    return now + seconds
+
+
+def _parse_modules_uacl(modules_s):
+    if not modules_s:
         return False
 
+    if modules_s == "*":
+        return "*"
 
-def _check_module(m, module):
-    if m == '*':
-        return True
-    ls = m.split(',')
-    if module in ls:
-        return True
-    else:
-        return False
+    return modules_s.replace(" ", "").split(",")
 
 
-def _is_banned(mask, channel, nick, user, hostmask, module):
+# User ACL checks
+
+def is_joined_uacl(mask, conf):
+    channel = mask["channel"]
+    return conf.has_channel(channel) or channel == "*"
+
+
+def is_banned_uacl(mask, channel, nick, user, host, module):
     """Check if a user is banned from using the bot.
 
     :param mask: A ``mask'' string in the following format:
                  channel nickname!username@hostmask time modules
     A * wildcard is allowed in front of the username and the hostmask.
     """
-    tmp = mask.split(" ", 1)
-    c = tmp[0]
-    tmp = tmp[1].split("!", 1)
-    n = tmp[0]
-    tmp = tmp[1].split("@", 1)
-    u = tmp[0]
-    tmp = tmp[1].split(" ", 1)
-    h = tmp[0]
-    tmp = tmp[1].split(" ", 1)
-    t = int(tmp[0])
-    m = tmp[1]
-
-    # Bans are not case sensitive
-    if (_is_ascii_cl(c, channel) or c == '*') \
-       and (_is_ascii_cl(n, nick) or n == '*') \
-       and _m_user(u, user) \
-       and _check_time(t) \
-       and _m_host(h, hostmask) \
-       and _check_module(m, module):
-        return True
-    else:
+    m_channel = mask["channel"]
+    if not (is_ascii_cl(m_channel, channel) or m_channel == "*"):
         return False
+
+    m_nick = mask["nick"]
+    if not (is_ascii_cl(m_nick, nick) or m_nick == "*"):
+        return False
+
+    return is_user_uacl(mask, user) and is_host_uacl(mask, host) \
+        and is_timestamp_uacl(mask, host) and is_module_uacl(mask, module)
+
+
+def is_user_uacl(mask, user):
+    # Usernames are not case sensitive
+    u = mask["user"].lower()
+    user = user.lower()
+
+    if u == user or u == "*":
+        return True
+
+    # If `u' is in this form: `*<text>' then check if `user' ends with <text>
+    if "*" == u[0] and u[1:] == user[-len(u[1:]):]:
+        return True
+
+    return False
+
+
+def is_host_uacl(mask, host):
+    h = mask["host"]
+
+    if h == host or h == "*":
+        return True
+
+    # If `h' is in this form: `*<text>' then check if `host' ends with <text>
+    if "*" == h[0] and h[1:] == host[-len(m[1:]):]:
+        return True
+
+    # If `h' is in this form: `<text>*' then check if `host' starts with <text>
+    if "*" == m[-1] and m[:-1] == hostmask[:len(m[:-1])]:
+        return True
+
+    return False
+
+
+def is_timestamp_uacl(mask):
+    timestamp = mask["timestamp"]
+
+    if timestamp == 0:
+        return True  # No timestamp set
+
+    now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    return timestamp > now
+
+
+def is_module_uacl(mask, module):
+    m = mask["modules"]
+
+    if m == '*':
+        return True
+
+    return module in m
 
 
 # ====================================================================
@@ -179,7 +266,7 @@ class Configuration:
     def is_auth_method(self, method):
         # Plain ASCII comparison is enough.
         # The bot will never use non-ASCII string values.
-        return _is_ascii_cl(self.get_auth_method(), method)
+        return is_ascii_cl(self.get_auth_method(), method)
 
     def get_auth_password(self):
         return self.conf["irc"]["connection"]["auth_password"]
@@ -210,11 +297,18 @@ class Configuration:
             return False
         return True
 
-    def get_modules_load(self):
-        return self.conf["irc"]["modules"]["load"]
-
     def get_modules_paths(self):
         return self.conf["irc"]["modules"]["paths"]
+
+    def get_module_settings(self, module):
+        try:
+            return self.conf["irc"]["modules"]["settings"][module]
+        except KeyError:
+            return {}
+
+    def set_module_settings(self, module, settings):
+        self.conf["irc"]["modules"]["settings"][module] = settings
+        self.save()
 
     def get_module_blacklist(self, module):
         try:
@@ -354,28 +448,19 @@ class Configuration:
 
         nick = msg.get_nickname()
         user = msg.get_user()
-        hostmask = msg.get_host()
-        channel = msg.get_msgtarget()
+        host = msg.get_host()
+        chan = msg.get_msgtarget()
 
         for i in uacl:
-            if _is_banned(i, channel, nick, user, hostmask, module):
+            if is_banned_uacl(i, chan, nick, user, host, module):
                 return True
         return False
 
     def is_expired_user_access_list(self, mask):
-        tmp = mask.split(" ", 1)
-        tmp = tmp[1].split("!", 1)
-        tmp = tmp[1].split("@", 1)
-        tmp = tmp[1].split(" ", 1)
-        tmp = tmp[1].split(" ", 1)
-        t = int(tmp[0])
+        t = mask["timestamp"]
 
         if t == 0:
             return False
+
         now = datetime.datetime.now(datetime.timezone.utc).timestamp()
-        if t < now:
-            return True
-        else:
-            return False
-
-
+        return t < now
