@@ -38,8 +38,6 @@ def verify(conf):
         return "irc:modules"
     if "paths" not in conf["irc"]["modules"]:
         return "irc:modules:paths"
-    if "load" not in conf["irc"]["modules"]:
-        return "irc:modules:load"
     if "global_prefix" not in conf["irc"]["modules"]:
         return "irc:modules:global_prefix"
     if "channel_prefix" not in conf["irc"]["modules"]:
@@ -64,7 +62,6 @@ def interactive_verify(conf):
         "irc:channels": irc_channels,
         "irc:modules": lambda c: c["irc"].update({"modules": {}}),
         "irc:modules:paths": irc_modules_paths,
-        "irc:modules:load": irc_modules_load,
         "irc:modules:global_prefix": irc_modules_global_prefix,
         "irc:modules:channel_prefix": lambda c: c["irc"]["modules"].update({
             "channel_prefix": {}}),
@@ -179,18 +176,14 @@ def irc_modules_paths(c):
 [Module setup]:  No modules will be loaded.
   Edit the  configuration  file  to  set the  paths to the
   module directories. Edit the section "irc.modules.paths"
-  with the needed paths and restart the bot."""
-    print(m)
-    c["irc"]["modules"].update({"paths": []})
+  with the needed paths and restart the bot.
 
-
-def irc_modules_load(c):
-    m = """
-  Edit the configuration  file to select which modules to
-  to load. Edit the section  "irc.modules.load"  with the
-  modules you want to use and restart the bot."""
+  - Each entry is in the format: {"path": ["module_name"]}
+  - Instead of using  a list  like ["module_name"] you can
+    use the option "all" to load all the modules in a path
+  - Make sure there are no duplicate module names"""
     print(m)
-    c["irc"]["modules"].update({"load": []})
+    c["irc"]["modules"].update({"paths": {}})
 
 
 def irc_modules_global_prefix(c):
