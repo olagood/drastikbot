@@ -1,14 +1,14 @@
 # drastikbot
 
 Drastikbot is an IRC bot that makes it easy to add new features thanks to its modular design.
-Version 2.1 offers a new User Access List to stop users from abusing the bot's features and
-an interface that allows Channel Operators and Bot Owners to access the bot's moderation and
-personalization features over IRC.
+Version 2.2 offers a new module API and is not backwards compatible with previous
+drastikbot versions.
 
-Visit: http://drastik.org/drastikbot/
+Warning: drastikbot 2.2 is a WIP. You are adviced to use another IRC
+bot unless you are comfortable with working with python.
 
 ### Features
-- Automatic module reloading
+- Module hot code reloading
 - Simple to use module API
 - SSL Support
 - SASL Support (Plain)
@@ -21,19 +21,18 @@ Visit: http://drastik.org/drastikbot/
 ### Prerequisites
 
 ```
-Python 3
-GNU/Linux or any unix-like OS.
+Python 3.8
 ```
-
-### Installing
-
-Check http://drastik.org/drastikbot/docs/start.html for installation and configuration instructions
 
 ### Modules
 
-You can find some modules to use with the bot here: https://github.com/olagood/drastikbot_modules
+Modules are used to add functionality to the bot. By default,
+drastikbot, only has a small set of built in modules used for
+implementing the IRC protocol. A list of modules you can use can be
+found here: https://github.com/olagood/drastikbot_modules
 
-Contributing new modules is welcomed provided that the Contribution guidelines below are followed.
+Contributing new modules is welcomed provided that the Contribution
+guidelines below are followed.
 
 ## Contributing
 
@@ -47,4 +46,4 @@ The code must be fully tested to ensure it does not break drastikbot or its modu
 
 ## License
 
-This project is licensed under the GNU Affero General Public License Version 3 ONLY - see the [COPYING](COPYING) file for details.
+This project is licensed under the GNU Affero General Public License Version 3 - see the [COPYING](COPYING) file for details.
