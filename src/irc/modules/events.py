@@ -61,6 +61,7 @@ def part(i, irc):
     nickname = i.msg.get_nickname()
     channel = i.msg.get_channel()
     del irc.names[channel][nickname]
+    del irc.channels[channel]
 
     # Log bot PART events
     if nickname == irc.curr_nickname:
