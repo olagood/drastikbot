@@ -20,7 +20,35 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import re
+
 import constants
+
+
+# ====================================================================
+# Helper commands
+# ====================================================================
+
+def remove_formatting(s):
+    '''Remove IRC String formatting codes'''
+    # - Regex -
+    # Capture "x03N,M". Should be the first called:
+    # (\\x03[0-9]{0,2},{1}[0-9]{1,2})
+    # Capture "x03N". Catch all color codes.
+    # (\\x03[0-9]{0,2})
+    # Capture the other formatting codes
+    s = re.sub(r'(\\x03[0-9]{0,2},{1}[0-9]{1,2})', '', s)
+    s = re.sub(r'(\\x03[0-9]{1,2})', '', s)
+    s = s.replace("\\x03", "")
+    s = s.replace("\\x02", "")
+    s = s.replace("\\x1d", "")
+    s = s.replace("\\x1D", "")
+    s = s.replace("\\x1f", "")
+    s = s.replace("\\x1F", "")
+    s = s.replace("\\x16", "")
+    s = s.replace("\\x0f", "")
+    s = s.replace("\\x0F", "")
+    return s
 
 
 # ====================================================================
@@ -221,7 +249,7 @@ class PRIVMSG(Base):
         return self.botcmd_prefix
 
     def get_args(self):
-        return self.args
+        return self.args.strip()
 
 
 class Cap(Base):
