@@ -209,6 +209,7 @@ class Drastikbot():
                 pass
             self.log.debug(f'Exception on connect() @ irc_sock.connect():'
                            f'\n{traceback.format_exc()}')
+            self.reconn_wait()
             return self.connect()
 
         # SOCKET OPTIONS
