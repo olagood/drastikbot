@@ -36,88 +36,96 @@ from dbot_tools import Logger
 from irc.irc import Drastikbot
 
 
-class Main:
-    def __init__(self, state, mod=False):
-        self.state = state
+irc_client = None
+state = None
 
-        signal.signal(signal.SIGINT, self.sigint_hdl)
+sigint = False
 
-        self.tpool = ThreadPoolExecutor()
 
-        self.log = state["runlog"]
-        self.irc = Drastikbot(state)
+def run(state0):
+    global state, irc_client
+    state = state0
 
-        irc.modules.init(state)
-        self.state["modules"] = irc.modules.mod_import(state)
+    irc.modules.init(state)
 
-    def conn_lost(self):
-        if self.irc.sigint:
+    while True:
+        if sigint:
             return
-        self.log.info('<!> Connection Lost. Retrying in {} seconds.'
-                      .format(self.irc.reconnect_delay))
-        self.irc.irc_socket.close()
-        self.irc.conn_state = 0
-        self.irc.reconn_wait()  # Wait before next reconnection attempt.
-        self.log.info('> Reconnecting...')
-        self.irc = Drastikbot(self.state)
-        self.main(reconnect=True)  # Restart the bot
 
-    def receive(self):
-        data = b""
-        while self.irc.conn_state != 0:
-            try:
-                data += self.irc.irc_socket.recv(4096)
-            except BlockingIOError:
-                continue  # No data on non blocking socket.
-            except Exception:
-                tc = traceback.format_exc()
-                self.log.debug(f'! Exception on receive(). \n{tc}')
-                self.conn_lost()
-                break
+        state["modules"] = irc.modules.mod_import(state)
 
-            if not data:
-                self.log.info('! recieve() exiting...')
-                self.conn_lost()
-                break
+        irc_client = Drastikbot(state)
+        irc_client.connect()
 
-            while True:
-                data_l = data.split(b'\n', 1)
-                if len(data_l) == 1:
-                    break    # No lines yet, wait for more data
+        signal.signal(signal.SIGINT, sigint_handler)
 
-                line, data = data_l
-                message = irc.message.parse(self.irc, line)
+        irc_client.conn_state = 1
 
-                # Reload modules in developer mode
-                if self.state["devmode"]:
-                    self.state["modules"] = irc.modules.reload_all(self.state)
+        with ThreadPoolExecutor() as tpool:
+            loop = tpool.submit(receive, tpool)
+            tpool.submit(irc.modules.startup, state, irc_client)
 
-                self.tpool.submit(irc.modules.dispatch,
-                                  self.state, self.irc, message)
+            # Wait for the receive loop to return
+            loop.result()
 
-    def thread_make(self, target, args='', daemon=False):
-        thread = Thread(target=target, args=(args))
-        thread.daemon = daemon
-        thread.start()
-        return thread
 
-    def sigint_hdl(self, signum, frame):
-        if self.irc.sigint == 0:
-            print("")  # Pretty stdout
-            self.log.info("<- Quiting...")
-            self.irc.sigint += 1
-            self.irc.conn_state = 0
-            self.irc.out.quit(self.state["conf"].get_quitmsg())
-        else:
-            print("")  # Pretty stdout
-            self.log.info("<--- Force Quit.")
-            os._exit(1)
+def receive(tpool):
+    log = state["runlog"]
 
-    def main(self, reconnect=False):
-        self.irc.connect()
+    data = b""
+    while irc_client.conn_state != 0:
+        try:
+            data += irc_client.irc_socket.recv(4096)
+        except BlockingIOError:
+            continue  # No data on non blocking socket.
+        except Exception:
+            tc = traceback.format_exc()
+            log.debug(f'! Exception on receive(). \n{tc}')
+            return connection_lost()
 
-        if self.irc.sigint:
-            return
-        self.irc.conn_state = 1
-        self.thread_make(self.receive)
-        self.thread_make(irc.modules.startup, (self.state, self.irc))
+        if not data:
+            log.info('! recieve() exiting...')
+            return connection_lost()
+
+        while True:
+            data_l = data.split(b'\n', 1)
+            if len(data_l) == 1:
+                break    # No lines yet, wait for more data
+
+            line, data = data_l
+            message = irc.message.parse(irc_client, line)
+
+            # Reload modules in developer mode
+            if state["devmode"]:
+                state["modules"] = irc.modules.reload_all(state)
+
+            tpool.submit(irc.modules.dispatch, state, irc_client, message)
+
+
+def connection_lost():
+    l = state["runlog"]
+
+    irc_client.irc_socket.close()
+
+    if sigint:
+        return
+
+    l.info(f'! Connection lost. Retrying in {irc.reconnect_delay} seconds.')
+    l.info('! Reconnecting.')
+
+
+def sigint_handler(signum, frame):
+    global sigint
+
+    log = state["runlog"]
+
+    if not sigint:
+        print("")  # Pretty stdout
+        log.info("<- Quiting...")
+        sigint = True
+        irc_client.conn_state = 0
+        irc_client.out.quit(state["conf"].get_quitmsg())
+    else:
+        print("")  # Pretty stdout
+        log.info("<--- Force Quit.")
+        os._exit(1)
