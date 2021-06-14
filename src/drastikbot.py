@@ -34,7 +34,7 @@ import constants
 import conf_setup
 from dbotconf import Configuration
 from dbot_tools import Logger
-from irc.worker import Main
+import irc.worker
 
 
 def print_banner():
@@ -112,9 +112,8 @@ def cli_arg_state():
 if __name__ == "__main__":
     print_banner()
     state = cli_arg_state()
-    main = Main(state)
     try:
-        main.main()
+        irc.worker.run(state)
     except Exception as e:
         logger = state["runlog"]
         logger.debug(f'Startup error:\n {e} {traceback.print_exc()}')
