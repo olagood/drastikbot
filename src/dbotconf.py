@@ -46,7 +46,7 @@ def parse_uacl(mask):
     nick, user, host = usermask
 
     timestamp = _get_future_unix_timestamp_uacl(args[2])
-    if not duration:
+    if timestamp is None:
         return 3, args[2]  # Invalid duration
 
     modules = _parse_modules_uacl(args[3])
@@ -105,7 +105,7 @@ def _get_future_unix_timestamp_uacl(duration_s):
             seconds += tmp
             tmp = 0
         else:
-            return False
+            return None
 
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     return now + seconds
@@ -135,21 +135,23 @@ def is_banned_uacl(mask, channel, nick, user, host, module):
                  channel nickname!username@hostmask time modules
     A * wildcard is allowed in front of the username and the hostmask.
     """
-    m_channel = mask["channel"]
+    tokens = parse_uacl(mask)
+
+    m_channel = tokens["channel"]
     if not (is_ascii_cl(m_channel, channel) or m_channel == "*"):
         return False
 
-    m_nick = mask["nick"]
+    m_nick = tokens["nick"]
     if not (is_ascii_cl(m_nick, nick) or m_nick == "*"):
         return False
 
-    return is_user_uacl(mask, user) and is_host_uacl(mask, host) \
-        and is_timestamp_uacl(mask, host) and is_module_uacl(mask, module)
+    return is_user_uacl(tokens, user) and is_host_uacl(tokens, host) \
+        and is_timestamp_uacl(tokens, host) and is_module_uacl(tokens, module)
 
 
-def is_user_uacl(mask, user):
+def is_user_uacl(tokens, user):
     # Usernames are not case sensitive
-    u = mask["user"].lower()
+    u = tokens["user"].lower()
     user = user.lower()
 
     if u == user or u == "*":
@@ -162,8 +164,8 @@ def is_user_uacl(mask, user):
     return False
 
 
-def is_host_uacl(mask, host):
-    h = mask["host"]
+def is_host_uacl(tokens, host):
+    h = tokens["host"]
 
     if h == host or h == "*":
         return True
@@ -179,8 +181,8 @@ def is_host_uacl(mask, host):
     return False
 
 
-def is_timestamp_uacl(mask):
-    timestamp = mask["timestamp"]
+def is_timestamp_uacl(tokens):
+    timestamp = tokens["timestamp"]
 
     if timestamp == 0:
         return True  # No timestamp set
@@ -189,8 +191,8 @@ def is_timestamp_uacl(mask):
     return timestamp > now
 
 
-def is_module_uacl(mask, module):
-    m = mask["modules"]
+def is_module_uacl(tokens, module):
+    m = tokens["modules"]
 
     if m == '*':
         return True
