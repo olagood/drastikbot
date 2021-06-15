@@ -228,27 +228,27 @@ def acl_add(i, irc):
         irc.out.notice(nickname, m)
         return
 
-    channel = tokens["channel"]
-    if not conf.has_channel(channel) and channel != '*':
-        m = f"\x0304I am not in {channel}"
+    t_channel = tokens["channel"]
+    if not conf.has_channel(t_channel) and t_channel != '*':
+        m = f"\x0304I am not in {t_channel}"
         irc.out.notice(nickname, m)
         return
 
-    if channel == '*':
+    if t_channel == '*':
         if not is_allowed(i, irc, nickname):
             m = f"\x0304You are not authorized. Are you logged in?"
             return irc.out.notice(nickname, m)
     else:
-        if not is_allowed(i, irc, nickname, channel):
+        if not is_allowed(i, irc, nickname, t_channel):
             m = ("\x0304You are not authorized. "
-                 f"Are you an operator of {channel}?")
+                 f"Are you an operator of {t_channel}?")
             return irc.out.notice(nickname, m)
 
-    modules = tokens["modules"]
-    if modules != '*':
-        for module_name in modules:
+    t_modules = tokens["modules"]
+    if t_modules != '*':
+        for module_name in t_modules:
             if modmgmt.get_object_from_name(modules, module_name) is None:
-                m = f"\x0304Module ``{module_name}'' not loaded"
+                m = f"\x0304Module `{module_name}' not loaded"
                 irc.out.notice(nickname, m)
                 return
 
@@ -297,6 +297,7 @@ def acl_list(i, irc):
                 f" {mask['nick']}!{mask['user']}@{mask['host']}"
                 f" {mask['timestamp']} {mask['modules']}"
                 "}")
+
     irc.out.notice(nickname, out)
 
 
