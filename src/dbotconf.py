@@ -46,14 +46,14 @@ def parse_uacl(mask):
     nick, user, host = usermask
 
     timestamp = _get_future_unix_timestamp_uacl(args[2])
-    if not duration:
+    if timestamp is None:
         return 3, args[2]  # Invalid duration
 
     modules = _parse_modules_uacl(args[3])
     if not modules:
         return 4, args[3]  # Invalid modules
 
-    return {
+    return 0, {
         "channel": channel,
         "nick": nick,
         "user": user,
@@ -105,7 +105,7 @@ def _get_future_unix_timestamp_uacl(duration_s):
             seconds += tmp
             tmp = 0
         else:
-            return False
+            return None
 
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     return now + seconds
