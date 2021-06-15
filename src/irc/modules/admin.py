@@ -296,7 +296,7 @@ def acl_list(i, irc):
                 f"{index}: {mask['channel']}"
                 f" {mask['nick']}!{mask['user']}@{mask['host']}"
                 f" {mask['timestamp']} {mask['modules']}"
-                "}")
+                "} ")
 
     irc.out.notice(nickname, out)
 
