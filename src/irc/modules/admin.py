@@ -210,25 +210,25 @@ def acl_add(i, irc):
     if not args:
         return irc.out.notice(nickname, m)
 
-    status = parse_uacl(args)
+    status, tokens = parse_uacl(args)
 
-    if status[0] == 1:  # Not enough args
+    if status == 1:  # Not enough args
         irc.out.notice(nickname, m)
         return
-    elif status[0] == 2:  # Invalid usermask
-        m = "\x0304Invalid usermask ``status[1]'' given."
+    elif status == 2:  # Invalid usermask
+        m = f"\x0304Invalid usermask ``{tokens}'' given."
         irc.out.notice(nickname, m)
         return
-    elif status[0] == 3:  # Invalid duration
-        m = "\x0304Invalid duration ``staus[1]'' given."
+    elif status == 3:  # Invalid duration
+        m = f"\x0304Invalid duration ``{tokens}'' given."
         irc.out.notice(nickname, m)
         return
-    elif status[0] == 4: # Invalid modules
-        m = "\x0304Invalid modules ``staus[1]'' given."
+    elif status == 4: # Invalid modules
+        m = f"\x0304Invalid modules ``{tokens}'' given."
         irc.out.notice(nickname, m)
         return
 
-    channel = status["channel"]
+    channel = tokens["channel"]
     if not conf.has_channel(channel) and channel != '*':
         m = f"\x0304I am not in {channel}"
         irc.out.notice(nickname, m)
@@ -244,7 +244,7 @@ def acl_add(i, irc):
                  f"Are you an operator of {channel}?")
             return irc.out.notice(nickname, m)
 
-    modules = status["modules"]
+    modules = tokens["modules"]
     if modules != '*':
         for module_name in modules:
             if modmgmt.get_object_from_name(modules, module_name) is None:
@@ -252,7 +252,7 @@ def acl_add(i, irc):
                 irc.out.notice(nickname, m)
                 return
 
-    conf.add_user_access_list(status)
+    conf.add_user_access_list(tokens)
     irc.out.notice(nickname, f"\x0303Mask added in the ACL")
 
 
@@ -290,8 +290,14 @@ def acl_list(i, irc):
         irc.out.notice(nickname, "No masks in the ACL")
         return
 
+    out = ""
     for index, mask in enumerate(uacl):
-        irc.out.notice(nickname, f"{index}: {mask}")
+        out += ("{"
+                f"{index}: {mask['channel']}"
+                f" {mask['nick']}!{mask['user']}@{mask['host']}"
+                f" {mask['timestamp']} {mask['modules']}"
+                "}")
+    irc.out.notice(nickname, out)
 
 
 #
@@ -591,6 +597,8 @@ def mod_channel_prefix_set(i, irc):
 # Help
 #
 def admin_help(i, irc):
+    prefix = i.msg.get_botcmd_prefix()
+
     join = [
         f"Usage: {prefix}join <channel> [password]",
         " Permission: Owners",
