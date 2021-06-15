@@ -34,6 +34,39 @@ found here: https://github.com/olagood/drastikbot_modules
 Contributing new modules is welcomed provided that the Contribution
 guidelines below are followed.
 
+
+### Upgrading from v2.1
+
+Because v2.2 brings in changes that break compatibility with previous
+versions you are suggested to reconfigure drastikbot 2.2 and avoid
+reusing your old configuration file.
+
+#### New module API
+
+A new module API was introduced in v2.2. Modules written for previous
+drastikbot versions have to up updated to work in v2.2.
+
+#### New User ACL representation
+
+The User ACL rule configuration representation has been changed from a
+list of strings to a list of JSON objects. The old rules will not work
+and drastikbot 2.2 will show a "dispatch error" if invalid UACL rules
+are present in the configuration.
+
+To update your rules remove them from the configuration file and
+reinsert them using the command: .acl_add
+
+#### Developer mode
+
+A new runtime option "--dev" has been added in v2.2 to help module
+development and debugging. This mode enables automatic module
+reloading (the modules are reloaded on each call) and importing and
+sets the bot's logging level to "debug".
+
+During normal operation (when the --dev option is not used) you can
+still perform module reloading and importing using the commands:
+.mod_import and .mod_reload
+
 ## Contributing
 
 All code contributions must follow the PEP 8 styling guidelines. Use of flake8 is recommended.
