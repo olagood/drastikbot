@@ -238,12 +238,14 @@ def callback_data(bot, msg):
     )
 
 
-def mod_call(module_name, fn, /, *args, **kwargs):
+def mod_call(module_name, fn, data, irc):
     try:
-        fn(*args, **kwargs)
-    except Exception:
+        fn(data, irc)
+    except Exception as e:
         tc = traceback.format_exc()
-        log.debug(f"Module ``{module_name}'' error:\n{tc}")
+        log.debug(f"Module ``{module_name}'' error: {e}"
+                  f"\nMessage: {data.msg.get_message()}"
+                  f"\n{tc}")
 
 
 def bot_command_dispatch(s, bot, irc, msg):
