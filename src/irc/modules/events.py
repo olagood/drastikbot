@@ -44,7 +44,27 @@ def rpl_endofnames_366(i, irc):
     i.varset("names", state)
 
 
+# ====================================================================
+# JOIN
+# ====================================================================
+
 def join(i, irc):
+    nickname = i.msg.get_nickname()
+    if nickname == irc.curr_nickname:
+        join_bot(i, irc)
+    else:
+        join_user(i, irc)
+
+
+def join_bot(i, irc):
+    channel = i.msg.get_channel()
+    irc.channels[channel] = []
+
+    # Log bot JOIN events
+    i.bot["runlog"].info(f"+ Joined {channel}")
+
+
+def join_user(i, irc):
     nickname = i.msg.get_nickname()
     channel = i.msg.get_channel()
     try:
@@ -52,21 +72,36 @@ def join(i, irc):
     except KeyError:
         irc.names[channel] = {nickname: [""]}
 
-    # Log bot JOIN events
-    if nickname == irc.curr_nickname:
-        i.bot["runlog"].info(f"+ Joined {channel}")
 
+# ====================================================================
+# PART
+# ====================================================================
 
 def part(i, irc):
     nickname = i.msg.get_nickname()
+    if nickname == irc.curr_nickname:
+        part_bot(i, irc)
+    else:
+        part_user(i, irc)
+
+
+def part_bot(i, irc):
     channel = i.msg.get_channel()
-    del irc.names[channel][nickname]
     del irc.channels[channel]
 
     # Log bot PART events
-    if nickname == irc.curr_nickname:
-        i.bot["runlog"].info(f"- Left {channel}")
+    i.bot["runlog"].info(f"- Left {channel}")
 
+
+def part_user(i, irc):
+    nickname = i.msg.get_nickname()
+    channel = i.msg.get_channel()
+    del irc.names[channel][nickname]
+
+
+# ====================================================================
+# QUIT
+# ====================================================================
 
 def quit(i, irc):
     nickname = i.msg.get_nickname()
