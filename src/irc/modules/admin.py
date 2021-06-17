@@ -359,8 +359,8 @@ def mod_whitelist_add(i, irc):
         irc.out.notice(nickname, m)
         return
 
-    if modmgmt.get_object_from_name(modules, module_name) is None:
-        m = f"\x0304Error: Module ``{module_name}'' not loaded"
+    if modmgmt.get_object_from_name(modules, module) is None:
+        m = f"\x0304Error: Module ``{module}'' not loaded"
         return irc.out.notice(nickname, m)
 
     if not conf.is_allowed_module_whitelist(module):
@@ -407,8 +407,8 @@ def mod_blacklist_add(i, irc):
         irc.out.notice(nickname, m)
         return
 
-    if modmgmt.get_object_from_name(modules, module_name) is None:
-        m = f"\x0304Error: Module ``{module_name}'' not loaded"
+    if modmgmt.get_object_from_name(modules, module) is None:
+        m = f"\x0304Error: Module ``{module}'' not loaded"
         return irc.out.notice(nickname, m)
 
     if not conf.is_allowed_module_blacklist(module):
