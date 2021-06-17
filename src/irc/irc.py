@@ -103,7 +103,6 @@ class Drastikbot():
         # sasl_state = 0: Not tried | 1: Success | 2: Fail | 3: In progress
         self.sasl_state = 0
         self.conn_state = 0  # 0: Disconnected | 1: Registering | 2: Connected
-        self.namesdict = {}  # {channel1: [["=","S"], {nick1: ["@"], , ...}]}
         self.botmodes = []   # [x,I] Modes returned after registration
 
         # Connection Status
