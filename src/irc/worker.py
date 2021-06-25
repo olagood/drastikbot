@@ -110,7 +110,8 @@ def connection_lost():
     if sigint:
         return
 
-    l.info(f'! Connection lost. Retrying in {irc.reconnect_delay} seconds.')
+    l.info("! Connection lost. Retrying in"
+           f" {irc_client.reconnect_delay} seconds.")
     l.info('! Reconnecting.')
 
 
