@@ -110,7 +110,24 @@ def quit(i, irc):
             del irc.names[channel][nickname]
 
 
+# ====================================================================
+# NICK
+# ====================================================================
+
 def nick(i, irc):
+    old_nickname = i.msg.get_nickname()
+    if old_nickname == irc.curr_nickname:
+        nick_bot(i, irc)
+    else:
+        nick_user(i, irc)
+
+
+def nick_bot(i, irc):
+    new_nickname = i.msg.get_new_nickname()
+    irc.curr_nickname = new_nickname
+
+
+def nick_user(i, irc):
     old_nickname = i.msg.get_nickname()
     new_nickname = i.msg.get_new_nickname()
     for channel in irc.names:
@@ -118,6 +135,10 @@ def nick(i, irc):
             mode = irc.names[channel].pop(old_nickname)
             irc.names[channel][new_nickname] = mode
 
+
+# ====================================================================
+# MODE
+# ====================================================================
 
 def mode(i, irc):
     if i.msg.is_channel_mode():
@@ -155,13 +176,20 @@ def is_higher_prefix(x, y):
     return val[x] > val[y]
 
 
+# ====================================================================
+# Main
+# ====================================================================
+
+dispatch = {
+    "353":  rpl_namreply_353,
+    "366":  rpl_endofnames_366,
+    "JOIN": join,
+    "PART": part,
+    "QUIT": quit,
+    "NICK": nick,
+    "MODE": mode
+}
+
+
 def main(i, irc):
-    {
-        "353":  rpl_namreply_353,
-        "366":  rpl_endofnames_366,
-        "JOIN": join,
-        "PART": part,
-        "QUIT": quit,
-        "NICK": nick,
-        "MODE": mode
-    }[i.msg.get_command()](i, irc)
+    dispatch[i.msg.get_command()](i, irc)
