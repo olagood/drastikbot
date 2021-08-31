@@ -163,70 +163,62 @@ class Drastikbot():
             t = text.encode('utf-8')[tr:]
             self.send(cmds, t)
 
-    def reconn_wait(self):
+    # Delay ##########################################################
+
+    def increment_delay(self):
+        '''Increment the self.reconnect_delay variable.
+
+        If the delay is 0 it is set to 10 seconds. The delay is doubled on
+        every call of this method until a delay of 10 minutes is reached.
         '''
-        Incrementally Wait before reconnection to the server. The initial delay
-        is zero, then it is set to ten seconds and keeps doubling after each
-        attempt until it reaches ten minutes.
-        '''
-        time.sleep(self.reconnect_delay)
         if self.reconnect_delay == 0:
             self.reconnect_delay = 10  # 10 sec.
-        elif self.reconnect_delay < 60 * 10:  # 10 mins.
+        elif self.reconnect_delay < 600:  # 10 mins.
             self.reconnect_delay *= 2
-        # Because the previous statement will end up with 640 seconds,
-        # we set it to 600 seconds and keep it there until we connect:
-        if self.reconnect_delay > 60 * 10:  # 10 mins.
-            self.reconnect_delay = 60 * 10
+        # Make sure that the maximum delay is 600 seconds (10 minutes).
+        if self.reconnect_delay > 600:  # 10 mins.
+            self.reconnect_delay = 600
+
+        return self.reconnect_delay
+
+    def reset_delay(self):
+        self.reconnect_delay = 0
+
+    def delay_wait(self):
+        time.sleep(self.reconnect_delay)
+
+    # Socket #########################################################
 
     def connect(self):
         host = self.conf.get_host()
         port = self.conf.get_port()
-        try:
-            # Timeout on socket.create_connection should be above the irc
-            # server's ping timeout setting
-            self.irc_socket = socket.create_connection((host, port), 300)
-            if self.conf.get_ssl():
-                self.irc_socket = ssl.wrap_socket(self.irc_socket)
-        except OSError:
-            if self.sigint:
-                return
-            self.log.debug('Exception on connect() @ irc_sock.connect()'
-                           f'\n{traceback.format_exc()}')
-            self.log.info(' - No route to host. Retrying in {} seconds'.format(
-                self.reconnect_delay))
+        while 1:
             try:
-                self.irc_socket.close()
-            except Exception:
-                pass
-            self.reconn_wait()  # Wait before next reconnection attempt.
-            return self.connect()
-        except IOError:
+                self.irc_socket = socket.create_connection((host, port), 300)
+            except Exception as e:
+                delay = self.increment_delay()
+                self.log.debug("Exception on irc.Drastikbot.connect()"
+                               f"\n{traceback.format_exc()}")
+                self.log.info(f"! {e}. Retrying in {delay} seconds.")
+                self.delay_wait()
+                self.log.info("! Reconnecting.")
+                continue
+
             try:
-                self.irc_socket.close()
-            except Exception:
-                pass
-            self.log.debug(f'Exception on connect() @ irc_sock.connect():'
-                           f'\n{traceback.format_exc()}')
-            self.reconn_wait()
-            return self.connect()
+                if self.conf.get_ssl():
+                    self.irc_socket = ssl.wrap_socket(self.irc_socket)
+            except Exception as e:
+                self.irc_socket.close()  # Close the socket
+                delay = self.increment_delay()
+                self.log.debug("Exception on irc.Drastikbot.connect()"
+                               f"\n{traceback.format_exc()}")
+                self.log.info(f"! {e}. Retrying in {delay} seconds.")
+                self.delay_wait()
+                self.log.info("! Reconnecting.")
+                continue
 
-        # SOCKET OPTIONS
-        # self.irc_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            if self.conf.get_network_passoword():
+                # Authenticate if the server is password protected
+                self.send(('PASS', self.conf.get_network_password()))
 
-        if self.conf.get_network_passoword():
-            # Authenticate if the server is password protected
-            self.send(('PASS', self.conf.get_network_password()))
-
-        # Set the connected variables, to inform the bot where exactly we are
-        # connected
-        try:
-            # There is a possibility that an Exception is raised here.
-            # Because they are not vital to the bot's operation we will just
-            # ignore them.
-            # Consider adding them to dbot_tools as functions.
-            self.connected_ip = self.irc_socket.getpeername()[0]
-            self.connected_host = socket.gethostbyaddr(
-                self.connected_ip)[0]
-        except Exception:
-            pass
+            break  # We connected to the server. Stop the loop.
