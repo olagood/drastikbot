@@ -35,7 +35,7 @@ from dbothelper import is_ascii_cl
 def parse_uacl(mask):
     args = mask.split(" ", 3)
     if len(args) < 4:
-        return 1, len(args) # Not enough arguments given
+        return 1, len(args)  # Not enough arguments given
 
     channel = args[0]
 
@@ -169,11 +169,11 @@ def is_host_uacl(mask, host):
         return True
 
     # If `h' is in this form: `*<text>' then check if `host' ends with <text>
-    if "*" == h[0] and h[1:] == host[-len(m[1:]):]:
+    if "*" == h[0] and h[1:] == host[-len(h[1:]):]:
         return True
 
     # If `h' is in this form: `<text>*' then check if `host' starts with <text>
-    if "*" == m[-1] and m[:-1] == hostmask[:len(m[:-1])]:
+    if "*" == h[-1] and h[:-1] == host[:len(h[:-1])]:
         return True
 
     return False
@@ -275,7 +275,7 @@ class Configuration:
         return self.conf["irc"]["connection"].get("net_passoword", "")
 
     def get_quitmsg(self):
-        m = f"drastikbot2 - drastik.org"
+        m = "drastikbot2 - drastik.org"
         return self.conf["irc"]["connection"].get("quitmsg", m)
 
     def get_msg_delay(self):
