@@ -22,17 +22,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
-from threading import Thread
 import os
-import re
-import base64
 import signal
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 import irc.message
 import irc.modules
-from dbot_tools import Logger
 from irc.irc import Drastikbot
 
 
