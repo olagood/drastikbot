@@ -24,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 import signal
+import socket
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 
@@ -74,10 +75,14 @@ def receive(tpool):
             data += irc_client.irc_socket.recv(4096)
         except BlockingIOError:
             continue  # No data on non blocking socket.
+        except socket.timeout:
+            connection_lost()
+            return
         except Exception:
             tc = traceback.format_exc()
             log.debug(f'! Exception on receive(). \n{tc}')
-            return connection_lost()
+            connection_lost()
+            return
 
         if not data:
             log.info('! recieve() exiting...')
@@ -99,16 +104,16 @@ def receive(tpool):
 
 
 def connection_lost():
-    l = state["runlog"]
+    log = state["runlog"]
 
     irc_client.irc_socket.close()
 
     if sigint:
         return
 
-    l.info("! Connection lost. Retrying in"
-           f" {irc_client.reconnect_delay} seconds.")
-    l.info('! Reconnecting.')
+    log.info("! Connection lost. Retrying in"
+             f" {irc_client.reconnect_delay} seconds.")
+    log.info('! Reconnecting.')
 
 
 def sigint_handler(signum, frame):
