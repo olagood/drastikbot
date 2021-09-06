@@ -102,7 +102,7 @@ def join(i, irc):
         password = ""
 
     if irc.conf.has_channel(channel):
-        m = f"\x0303I am already in {channel}"
+        m = f"\x0303I am already in {channel} (in the config file)"
         return irc.out.notice(nickname, m)
 
     irc.conf.set_channel(channel, password)
