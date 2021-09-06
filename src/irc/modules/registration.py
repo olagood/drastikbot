@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 '''
 
 import base64
-import collections
 
 import constants
 
@@ -89,7 +88,7 @@ def sasl_fail_904(i, irc):
     irc.send(("CAP", "END"))
 
 
-def err_nicnameinuse_433(self):
+def err_nicknameinuse_433(i, irc):
     irc.curr_nickname = irc.curr_nickname + '_'
     irc.alt_nickname = True
     irc.out.nick(irc.curr_nickname)
@@ -97,6 +96,8 @@ def err_nicnameinuse_433(self):
 
 def rpl_endofmotd_376(i, irc):
     # TODO: check what the actual nickname is. Aka see for +r mode
+    nickname = i.bot["conf"].get_nickname()
+    password = i.bot["conf"].get_auth_password()
     if irc.alt_nickname and i.bot["conf"].get_auth_method():
         irc.out.privmsg("NickServ", f"GHOST {nickname} {password}")
         irc.out.privmsg("NickServ", f"RECOVER {nickname} {password}")
@@ -113,6 +114,6 @@ def main(i, irc):
         "AUTHENTICATE": authenticate,
         "903": sasl_success_903,
         "904": sasl_fail_904,
-        "433": err_nicnameinuse_433,
+        "433": err_nicknameinuse_433,
         "376": rpl_endofmotd_376
     }[i.msg.get_command()](i, irc)
