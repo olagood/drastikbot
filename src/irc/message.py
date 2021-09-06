@@ -78,10 +78,10 @@ class Base:
         return self.get_nickname().lower() == nickname.lower()
 
     def get_user(self):
-        return self.m["prefix"]["nickname"]
+        return self.m["prefix"]["user"]
 
     def get_host(self):
-        return self.m["prefix"]["nickname"]
+        return self.m["prefix"]["host"]
 
     def get_command(self):
         return self.m["command"]
@@ -208,6 +208,15 @@ class KICK(Base):
 
     def get_channel(self):
         return self.get_params()[0]
+
+    def get_target_user(self):
+        return self.get_params()[1]
+
+    def get_comment(self):
+        try:
+            return self.get_params()[2]
+        except IndexError:
+            return ""
 
 
 class PING(Base):
