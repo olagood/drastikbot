@@ -24,7 +24,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 class Module:
-    irc_commands = ["353", "366", "JOIN", "MODE", "NICK", "PART", "QUIT"]
+    irc_commands = ["353", "366", "JOIN", "MODE", "NICK", "PART", "KICK",
+                    "QUIT"]
 
 
 def rpl_namreply_353(i, irc):
@@ -185,6 +186,7 @@ dispatch = {
     "366":  rpl_endofnames_366,
     "JOIN": join,
     "PART": part,
+    "KICK": part,
     "QUIT": quit,
     "NICK": nick,
     "MODE": mode
