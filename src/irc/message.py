@@ -202,6 +202,14 @@ class PART(Base):
         return self.get_params()[0]
 
 
+class KICK(Base):
+    def __init__(self, m):
+        super().__init__(m)
+
+    def get_channel(self):
+        return self.get_params()[0]
+
+
 class PING(Base):
     def __init__(self, m):
         super().__init__(m)
@@ -348,6 +356,7 @@ dispatch = {
     "NICK": lambda irc, m: NICK(m),
     "NOTICE": lambda irc, m: NOTICE(irc, m),
     "PART": lambda irc, m: PART(m),
+    "KICK": lambda irc, m: KICK(m),
     "PING": lambda irc, m: PING(m),
     "PRIVMSG": lambda irc, m: PRIVMSG(irc, m),
 }
