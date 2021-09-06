@@ -101,6 +101,38 @@ def part_user(i, irc):
 
 
 # ====================================================================
+# KICK
+# ====================================================================
+
+def kick(i, irc):
+    target_user = i.msg.get_target_user()
+    if target_user == irc.curr_nickname:
+        kick_bot(i, irc)
+    else:
+        kick_user(i, irc)
+
+
+def kick_bot(i, irc):
+    nickname = i.msg.get_nickname()
+    user = i.msg.get_user()
+    host = i.msg.get_host()
+    channel = i.msg.get_channel()
+    comment = i.msg.get_comment()
+    del irc.channels[channel]
+
+    # Log bot KICK events
+    m = (f"- Left {channel}"
+         f" : KICK issued by {nickname}!{user}@{host} ({comment})")
+    i.bot["runlog"].info(m)
+
+
+def kick_user(i, irc):
+    nickname = i.msg.get_target_user()
+    channel = i.msg.get_channel()
+    del irc.names[channel][nickname]
+
+
+# ====================================================================
 # QUIT
 # ====================================================================
 
@@ -186,7 +218,7 @@ dispatch = {
     "366":  rpl_endofnames_366,
     "JOIN": join,
     "PART": part,
-    "KICK": part,
+    "KICK": kick,
     "QUIT": quit,
     "NICK": nick,
     "MODE": mode
