@@ -22,7 +22,7 @@
 
 import re
 
-import constants
+import constants  # type: ignore
 
 
 # ====================================================================
@@ -261,6 +261,9 @@ class PRIVMSG(Base):
 
     def is_botcmd(self, cmd):
         return self.botcmd == cmd
+
+    def is_botcmd_prefix(self, prefix):
+        return self.botcmd_prefix == prefix
 
     def get_botcmd_prefix(self):
         return self.botcmd_prefix
