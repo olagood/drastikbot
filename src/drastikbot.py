@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # coding=utf-8
 
@@ -49,7 +48,6 @@ def print_banner():
  Welcome!
 ---------------------------------------------------------------
 """)
-
 
 
 def ensure_dir_exists(path):
