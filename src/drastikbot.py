@@ -37,13 +37,13 @@ import irc.worker
 
 
 def print_banner():
-    print("""
+    print(f"""
 ---------------------------------------------------------------
- Drastikbot 2.2
+ drastikbot {constants.version}
     An IRC bot focused on its extensibility and personalization
 
  License: GNU AGPLv3
- Drastikbot 2.2 comes WITHOUT ANY WARRANTY
+ drastikbot {constants.version} comes WITHOUT ANY WARRANTY
 
  Welcome!
 ---------------------------------------------------------------

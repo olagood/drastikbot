@@ -25,7 +25,7 @@ from pathlib import Path
 
 
 progname = "drastikbot"
-version = "2.2"
+version = "2.2.1"
 codename = ""
 
 # The default bot directory to use if the user does not specify one
@@ -45,7 +45,6 @@ def get_config_path(botdir):
 
 def get_log_dir(botdir):
     return Path(botdir, logdir).expanduser().resolve()
-
 
 
 # Helper functions
