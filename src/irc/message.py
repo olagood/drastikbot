@@ -4,7 +4,7 @@
 # message passed has already been split at the newline by the caller.
 # No validation is performed and invalid input may crash it.
 
-# Copyright (C) 2021 drastik.org
+# Copyright (C) 2021-2022 drastik.org
 #
 # This file is part of drastikbot.
 #

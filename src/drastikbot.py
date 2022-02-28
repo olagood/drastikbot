@@ -6,7 +6,7 @@
 # file and calls the main bot functions.
 
 '''
-Copyright (C) 2017-2019, 2021 drastik.org
+Copyright (C) 2017-2019, 2021-2022 drastik.org
 
 This file is part of drastikbot.
 
