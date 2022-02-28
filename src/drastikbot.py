@@ -114,4 +114,5 @@ if __name__ == "__main__":
         irc.worker.run(state)
     except Exception as e:
         logger = state["runlog"]
-        logger.debug(f'Startup error:\n {e} {traceback.print_exc()}')
+        logger.debug(
+            f'Startup error:\n {e} {traceback.print_exc()}')  # type: ignore
