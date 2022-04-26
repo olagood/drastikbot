@@ -30,7 +30,6 @@ import sqlite3
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-import irc.message as parser
 from dbot_tools import Logger
 
 
@@ -41,7 +40,7 @@ irc_command_tpool = ThreadPoolExecutor()
 log = None
 var_memory = None
 db_memory = None
-db_disk = None
+db_disk_path = None
 
 
 # ====================================================================
@@ -58,9 +57,8 @@ def init(bot):
     global db_memory
     db_memory = sqlite3.connect(':memory:', check_same_thread=False)
 
-    global db_disk
-    path = f"{bot['botdir']}/drastikbot.db"
-    db_disk = sqlite3.connect(path, check_same_thread=False)
+    global db_disk_path
+    db_disk_path = f"{bot['botdir']}/drastikbot.db"
 
 
 # ====================================================================
@@ -231,7 +229,7 @@ def callback_data(bot, msg):
     return CallbackData(
         msg=msg,
         db_memory=db_memory,
-        db_disk=db_disk,
+        db_disk=sqlite3.connect(db_disk_path, check_same_thread=False),
         varget=var_memory.varget,
         varset=var_memory.varset,
         bot=bot
