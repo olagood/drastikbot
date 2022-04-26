@@ -278,7 +278,6 @@ def bot_command_maybe(s, bot, irc, msg):
 
 def irc_command_dispatch(s, bot, irc, msg):
     conf = bot["conf"]
-    data = callback_data(bot, msg)
 
     for module_object in s["irc_command_d"].get(msg.get_command(), []):
         module_name = s["modules_d"][module_object].stem
@@ -294,6 +293,7 @@ def irc_command_dispatch(s, bot, irc, msg):
             if conf.is_banned_user_access_list(msg, module_name):
                 continue
 
+        data = callback_data(bot, msg)  # Make a new db connection
         irc_command_tpool.submit(
             mod_call, module_name, module_object.main, data, irc)
 
