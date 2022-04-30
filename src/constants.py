@@ -3,7 +3,7 @@
 # A module to centralize all the constant values of the bot
 
 '''
-Copyright (C) 2021 drastik.org
+Copyright (C) 2021-2022 drastik.org
 
 This file is part of drastikbot.
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 
 progname = "drastikbot"
-version = "2.2.1"
+version = "2.2.2"
 codename = ""
 
 # The default bot directory to use if the user does not specify one
