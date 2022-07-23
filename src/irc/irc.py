@@ -6,7 +6,7 @@
 # and the management of its features.
 
 '''
-Copyright (C) 2017-2019, 2021 drastik.org
+Copyright (C) 2017-2019, 2021-2022 drastik.org
 
 This file is part of drastikbot.
 
@@ -29,6 +29,7 @@ import time
 import traceback
 
 import dbot_tools
+from irc.message import remove_formatting
 
 
 class Output:
@@ -125,9 +126,7 @@ class Drastikbot():
         cmds = [dbot_tools.text_fix(cmd) for cmd in cmds]
         if text:
             text = dbot_tools.text_fix(text)
-            # https://tools.ietf.org/html/rfc2812.html#section-2.3
-            # NOTE: 2) IRC messages are limited to 512 characters in length.
-            # With CR-LF we are left with 510 characters to use
+            text = self._apply_output_filter(text)
             tosend = f"{' '.join(cmds)} :{text}"
         else:
             tosend = ' '.join(cmds)  # for commands
@@ -150,6 +149,11 @@ class Drastikbot():
             self.log.debug(f'Exception on send() @ irc.py:'
                            f'\n{traceback.format_exc()}')
             return self.irc_socket.close()
+
+        # https://tools.ietf.org/html/rfc2812.html#section-2.3
+        # NOTE: 2) IRC messages are limited to 512 characters in length.
+        # With CR-LF we are left with 510 characters to use
+        #
         # If the input text is longer than 510 send the rest.
         # "limit" decrements after every message and is used to control
         # the amount of messages the bot is allowed to send. The value
@@ -162,6 +166,23 @@ class Drastikbot():
             tr = self.msg_len - 2 - irc_msg_len - remainder
             t = text.encode('utf-8')[tr:]
             self.send(cmds, t)
+
+    def _apply_output_filter(self, text):
+        o_filter = self.conf.get_output_filter()
+        if not o_filter:
+            return text
+
+        tokens = text.split()  # Split the text in tokens
+        for index, token in enumerate(tokens):
+            for k, v in o_filter.items():
+                # Remove formatting from the token. This will break the
+                # formatting of the output text.
+                # TODO: ^ Fix the above
+                t = remove_formatting(ascii(token.casefold()))
+                if ascii(k.casefold()) == t:
+                    tokens[index] = v
+
+        return " ".join(tokens)
 
     # Delay ##########################################################
 

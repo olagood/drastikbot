@@ -464,3 +464,9 @@ class Configuration:
 
         now = datetime.datetime.now(datetime.timezone.utc).timestamp()
         return t < now
+
+    def get_output_filter(self):
+        try:
+            return self.conf["irc"]["output_filter"]
+        except KeyError:
+            return None
