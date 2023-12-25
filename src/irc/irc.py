@@ -6,7 +6,7 @@
 # and the management of its features.
 
 '''
-Copyright (C) 2017-2019, 2021-2022 drastik.org
+Copyright (C) 2017-2019, 2021-2023 drastik.org
 
 This file is part of drastikbot.
 
