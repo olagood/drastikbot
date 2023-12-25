@@ -230,7 +230,8 @@ class Drastikbot():
                     context = ssl.create_default_context()
                     # context.check_hostname = False
                     # context.verify_mode = ssl.CERT_NONE
-                    self.irc_socket = context.wrap_socket(self.irc_socket)
+                    self.irc_socket = context.wrap_socket(
+                        self.irc_socket, server_hostname=host)
             except Exception as e:
                 self.irc_socket.close()  # Close the socket
                 delay = self.increment_delay()
