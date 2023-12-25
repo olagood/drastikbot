@@ -227,7 +227,10 @@ class Drastikbot():
 
             try:
                 if self.conf.get_ssl():
-                    self.irc_socket = ssl.wrap_socket(self.irc_socket)
+                    context = ssl.create_default_context()
+                    # context.check_hostname = False
+                    # context.verify_mode = ssl.CERT_NONE
+                    self.irc_socket = context.wrap_socket(self.irc_socket)
             except Exception as e:
                 self.irc_socket.close()  # Close the socket
                 delay = self.increment_delay()
