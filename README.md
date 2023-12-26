@@ -21,7 +21,7 @@ bot unless you are comfortable with working with python.
 ### Prerequisites
 
 ```
-Python 3.8
+Python 3.8 or above
 ```
 
 ### Modules
